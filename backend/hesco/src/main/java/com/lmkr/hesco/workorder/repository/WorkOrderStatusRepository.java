@@ -7,6 +7,6 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface WorkOrderStatusRepository extends JpaRepository<WorkOrderStatus, Short> {
+public interface WorkOrderStatusRepository extends JpaRepository<WorkOrderStatus, Long> {
     Optional<WorkOrderStatus> findByCode(String code);
 }

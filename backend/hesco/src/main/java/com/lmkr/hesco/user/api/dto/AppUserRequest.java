@@ -9,7 +9,7 @@ public record AppUserRequest(
     @NotBlank String firstName,
     @NotBlank String lastName,
     String contactNumber,
-    @NotNull Short roleId,
+    @NotNull Long roleId,
     Long circleId,
     Long divisionId,
     Long subDivisionId,

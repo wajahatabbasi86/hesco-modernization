@@ -22,7 +22,7 @@ public class WorkOrderAction {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Short id;
+    private Long id;
 
     @Column(nullable = false, unique = true, length = 30)
     private String code; // ASSIGN, COMPLETE_SURVEY, VALIDATE, REVERT, SUBMIT, APPROVE, REJECT, POST, DELETE

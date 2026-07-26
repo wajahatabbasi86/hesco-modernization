@@ -10,6 +10,8 @@ import com.lmkr.hesco.workorder.exception.InvalidWorkOrderTransitionException;
 import com.lmkr.hesco.workorder.exception.MissingRejectionCommentException;
 import com.lmkr.hesco.workorder.repository.WorkOrderRepository;
 import com.lmkr.hesco.workorder.repository.WorkOrderTransitionLogRepository;
+import com.lmkr.hesco.workorder.repository.WorkOrderTransitionRepository;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,20 +37,13 @@ import org.springframework.transaction.annotation.Transactional;
  * risk that existed with triggers if a caller used raw SQL, just moved to
  * "don't bypass the service layer" instead of "don't bypass the DB").
  */
+@AllArgsConstructor
 @Service
 public class WorkOrderStateMachineService {
 
     private final WorkOrderTransitionRepository transitionRepository;
     private final WorkOrderRepository workOrderRepository;
     private final WorkOrderTransitionLogRepository transitionLogRepository;
-
-    public WorkOrderStateMachineService(WorkOrderTransitionRepository transitionRepository,
-                                         WorkOrderRepository workOrderRepository,
-                                         WorkOrderTransitionLogRepository transitionLogRepository) {
-        this.transitionRepository = transitionRepository;
-        this.workOrderRepository = workOrderRepository;
-        this.transitionLogRepository = transitionLogRepository;
-    }
 
     /**
      * SRS §3.6.3: "The system shall allow the Creator to create work
