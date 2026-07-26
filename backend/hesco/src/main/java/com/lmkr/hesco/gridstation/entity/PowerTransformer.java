@@ -1,8 +1,27 @@
 package com.lmkr.hesco.gridstation.entity;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "power_transformer")
 public class PowerTransformer {
@@ -26,27 +45,4 @@ public class PowerTransformer {
 
     @Column(name = "capacity_kva", precision = 10, scale = 2)
     private BigDecimal capacityKva;
-
-    protected PowerTransformer() {
-    }
-
-    public PowerTransformer(GridStation gridStation, String transformerName, String cableSize,
-                             String ctRatio, BigDecimal capacityKva) {
-        this.gridStation = gridStation;
-        this.transformerName = transformerName;
-        this.cableSize = cableSize;
-        this.ctRatio = ctRatio;
-        this.capacityKva = capacityKva;
-    }
-
-    public Long getId() { return id; }
-    public GridStation getGridStation() { return gridStation; }
-    public String getTransformerName() { return transformerName; }
-    public void setTransformerName(String transformerName) { this.transformerName = transformerName; }
-    public String getCableSize() { return cableSize; }
-    public void setCableSize(String cableSize) { this.cableSize = cableSize; }
-    public String getCtRatio() { return ctRatio; }
-    public void setCtRatio(String ctRatio) { this.ctRatio = ctRatio; }
-    public BigDecimal getCapacityKva() { return capacityKva; }
-    public void setCapacityKva(BigDecimal capacityKva) { this.capacityKva = capacityKva; }
 }

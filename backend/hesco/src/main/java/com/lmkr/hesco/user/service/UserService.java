@@ -62,9 +62,15 @@ public class UserService {
         Role role = roleRepository.findById(request.roleId())
             .orElseThrow(() -> new EntityNotFoundException("Role not found: " + request.roleId()));
 
-        AppUser user = new AppUser(request.username(), passwordEncoder.encode(request.password()),
-            request.firstName(), request.lastName(), request.contactNumber(), role);
-        user.setImei(request.imei());
+        AppUser user = AppUser.builder()
+                .username(request.username())
+                .passwordHash(passwordEncoder.encode(request.password()))
+                .firstName(request.firstName())
+                .lastName(request.lastName())
+                .contactNumber(request.contactNumber())
+                .role(role)
+                .imei(request.imei())
+                .build();
         applyBounds(user, request);
 
         roleBoundValidator.validate(user);

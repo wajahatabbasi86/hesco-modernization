@@ -1,13 +1,30 @@
 package com.lmkr.hesco.workorder.entity;
 
 import com.lmkr.hesco.user.entity.Role;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 
 /**
  * One legal (from_status, action, role) -> to_status row. Plain reference
  * data — WorkOrderStateMachineService reads it, it does not enforce
  * anything by itself (no DB trigger sits behind this table).
  */
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "work_order_transition")
 public class WorkOrderTransition {
@@ -35,12 +52,4 @@ public class WorkOrderTransition {
     @Column(name = "requires_comment", nullable = false)
     private boolean requiresComment;
 
-    protected WorkOrderTransition() {
-    }
-
-    public WorkOrderStatus getFromStatus() { return fromStatus; }
-    public WorkOrderAction getAction() { return action; }
-    public Role getRole() { return role; }
-    public WorkOrderStatus getToStatus() { return toStatus; }
-    public boolean isRequiresComment() { return requiresComment; }
 }

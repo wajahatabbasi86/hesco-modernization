@@ -2,9 +2,30 @@ package com.lmkr.hesco.workorder.entity;
 
 import com.lmkr.hesco.feeder.entity.Feeder;
 import com.lmkr.hesco.user.entity.AppUser;
-import jakarta.persistence.*;
 import java.time.OffsetDateTime;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "work_order")
 public class WorkOrder {
@@ -39,28 +60,4 @@ public class WorkOrder {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
-    protected WorkOrder() {
-    }
-
-    public WorkOrder(Feeder feeder, WorkOrderType woType, WorkOrderStatus initialStatus, AppUser createdBy) {
-        this.feeder = feeder;
-        this.woType = woType;
-        this.status = initialStatus;
-        this.createdBy = createdBy;
-        this.createdAt = OffsetDateTime.now();
-    }
-
-    public Long getId() { return id; }
-    public Feeder getFeeder() { return feeder; }
-    public WorkOrderType getWoType() { return woType; }
-    public WorkOrderStatus getStatus() { return status; }
-    public void setStatus(WorkOrderStatus status) { this.status = status; }
-    public AppUser getCreatedBy() { return createdBy; }
-    public AppUser getAssignedTo() { return assignedTo; }
-    public void setAssignedTo(AppUser assignedTo) { this.assignedTo = assignedTo; }
-    public Double getLocationLat() { return locationLat; }
-    public void setLocationLat(Double locationLat) { this.locationLat = locationLat; }
-    public Double getLocationLng() { return locationLng; }
-    public void setLocationLng(Double locationLng) { this.locationLng = locationLng; }
-    public OffsetDateTime getCreatedAt() { return createdAt; }
 }

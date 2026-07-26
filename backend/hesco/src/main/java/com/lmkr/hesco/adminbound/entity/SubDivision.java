@@ -1,7 +1,26 @@
 package com.lmkr.hesco.adminbound.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "sub_division")
 public class SubDivision {
@@ -23,18 +42,4 @@ public class SubDivision {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
-    protected SubDivision() {
-    }
-
-    public SubDivision(Division division, String code, String name) {
-        this.division = division;
-        this.code = code;
-        this.name = name;
-    }
-
-    public Long getId() { return id; }
-    public Division getDivision() { return division; }
-    public String getCode() { return code; }
-    public String getName() { return name; }
-    public boolean isActive() { return active; }
 }

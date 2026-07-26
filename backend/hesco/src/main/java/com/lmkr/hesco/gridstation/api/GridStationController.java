@@ -3,62 +3,48 @@ package com.lmkr.hesco.gridstation.api;
 import com.lmkr.hesco.common.api.ApiResponse;
 import com.lmkr.hesco.gridstation.api.dto.GridStationRequest;
 import com.lmkr.hesco.gridstation.api.dto.GridStationResponse;
-import com.lmkr.hesco.gridstation.entity.GridStation;
-import com.lmkr.hesco.gridstation.repository.GridStationRepository;
-import jakarta.persistence.EntityNotFoundException;
+import com.lmkr.hesco.gridstation.service.GridStationService;
 import jakarta.validation.Valid;
+import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Grid Station CRUD (SRS §3.4). Power Transformer sub-entity CRUD lives
- * in PowerTransformerController.
- */
+@AllArgsConstructor
 @RestController
 @RequestMapping("/api/grid-stations")
 public class GridStationController {
 
-    private final GridStationRepository gridStationRepository;
-
-    public GridStationController(GridStationRepository gridStationRepository) {
-        this.gridStationRepository = gridStationRepository;
-    }
+    private final GridStationService service;
 
     @GetMapping
     public ApiResponse<List<GridStationResponse>> list() {
-        return ApiResponse.ok(gridStationRepository.findAll().stream().map(GridStationResponse::from).toList());
+        return ApiResponse.ok(service.findAll());
     }
 
     @GetMapping("/{id}")
     public ApiResponse<GridStationResponse> get(@PathVariable Long id) {
-        return ApiResponse.ok(GridStationResponse.from(findOrThrow(id)));
+        return ApiResponse.ok(service.findById(id));
     }
 
     @PostMapping
-    public ApiResponse<GridStationResponse> create(@Valid @RequestBody GridStationRequest request) {
-        GridStation gridStation = new GridStation(request.code(), request.name(), request.latitude(), request.longitude());
-        return ApiResponse.ok(GridStationResponse.from(gridStationRepository.save(gridStation)), "Grid Station created");
+    public ApiResponse<GridStationResponse> create(
+            @Valid @RequestBody GridStationRequest request
+    ) {
+        return ApiResponse.ok(service.create(request), "Grid Station created");
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<GridStationResponse> update(@PathVariable Long id, @Valid @RequestBody GridStationRequest request) {
-        GridStation gridStation = findOrThrow(id);
-        gridStation.setCode(request.code());
-        gridStation.setName(request.name());
-        gridStation.setLatitude(request.latitude());
-        gridStation.setLongitude(request.longitude());
-        return ApiResponse.ok(GridStationResponse.from(gridStationRepository.save(gridStation)), "Grid Station updated");
+    public ApiResponse<GridStationResponse> update(
+            @PathVariable Long id,
+            @Valid @RequestBody GridStationRequest request
+    ) {
+        return ApiResponse.ok(service.update(id, request), "Grid Station updated");
     }
 
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
-        gridStationRepository.delete(findOrThrow(id));
+        service.delete(id);
         return ApiResponse.ok(null, "Grid Station deleted");
-    }
-
-    private GridStation findOrThrow(Long id) {
-        return gridStationRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("Grid Station not found: " + id));
     }
 }

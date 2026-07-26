@@ -2,10 +2,31 @@ package com.lmkr.hesco.survey.entity;
 
 import com.lmkr.hesco.user.entity.AppUser;
 import com.lmkr.hesco.workorder.entity.WorkOrder;
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "survey_form")
 public class SurveyForm {
@@ -42,34 +63,4 @@ public class SurveyForm {
 
     @Column(name = "synced_at")
     private OffsetDateTime syncedAt;
-
-    protected SurveyForm() {
-    }
-
-    public SurveyForm(WorkOrder workOrder, SePointType sePoint, String gpsNumber, EquipmentType equipmentType,
-                       BigDecimal lineLengthMeters, AppUser submittedBy, Double latitude, Double longitude,
-                       String remarks) {
-        this.workOrder = workOrder;
-        this.sePoint = sePoint;
-        this.gpsNumber = gpsNumber;
-        this.equipmentType = equipmentType;
-        this.lineLengthMeters = lineLengthMeters;
-        this.submittedBy = submittedBy;
-        this.latitude = latitude;
-        this.longitude = longitude;
-        this.remarks = remarks;
-        this.syncedAt = OffsetDateTime.now();
-    }
-
-    public Long getId() { return id; }
-    public WorkOrder getWorkOrder() { return workOrder; }
-    public SePointType getSePoint() { return sePoint; }
-    public String getGpsNumber() { return gpsNumber; }
-    public EquipmentType getEquipmentType() { return equipmentType; }
-    public BigDecimal getLineLengthMeters() { return lineLengthMeters; }
-    public AppUser getSubmittedBy() { return submittedBy; }
-    public Double getLatitude() { return latitude; }
-    public Double getLongitude() { return longitude; }
-    public String getRemarks() { return remarks; }
-    public OffsetDateTime getSyncedAt() { return syncedAt; }
 }

@@ -1,7 +1,21 @@
 package com.lmkr.hesco.survey.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "equipment_type")
 public class EquipmentType {
@@ -19,11 +33,4 @@ public class EquipmentType {
     @Column(name = "can_be_end", nullable = false)
     private boolean canBeEnd;
 
-    protected EquipmentType() {
-    }
-
-    public Integer getId() { return id; }
-    public String getCode() { return code; }
-    public boolean isCanBeStart() { return canBeStart; }
-    public boolean isCanBeEnd() { return canBeEnd; }
 }

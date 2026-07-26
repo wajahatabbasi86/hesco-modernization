@@ -53,7 +53,12 @@ public class WorkOrderService {
         WorkOrderStatus initialStatus = workOrderStatusRepository.findByCode(INITIAL_STATUS_CODE)
             .orElseThrow(() -> new EntityNotFoundException("Work Order status not seeded: " + INITIAL_STATUS_CODE));
 
-        WorkOrder workOrder = new WorkOrder(feeder, woType, initialStatus, creator);
+        WorkOrder workOrder = WorkOrder.builder()
+                .feeder(feeder)
+                .woType(woType)
+                .status(initialStatus)
+                .assignedTo(creator)
+                .build();
         workOrder.setLocationLat(lat);
         workOrder.setLocationLng(lng);
         return workOrderRepository.save(workOrder);

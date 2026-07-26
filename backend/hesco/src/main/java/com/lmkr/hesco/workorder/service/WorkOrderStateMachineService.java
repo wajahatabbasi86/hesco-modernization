@@ -81,9 +81,16 @@ public class WorkOrderStateMachineService {
         var fromStatus = workOrder.getStatus();
         workOrder.setStatus(transition.getToStatus());
         WorkOrder saved = workOrderRepository.save(workOrder);
+        WorkOrderTransitionLog log = WorkOrderTransitionLog.builder()
+                .workOrder(saved)
+                .fromStatus(fromStatus)
+                .action(transition.getAction())
+                .toStatus(transition.getToStatus())
+                .performedBy(actor)
+                .comment(comment)
+                .build();
 
-        transitionLogRepository.save(new WorkOrderTransitionLog(saved, fromStatus, transition.getAction(),
-            transition.getToStatus(), actor, comment));
+        transitionLogRepository.save(log);
 
         return saved;
     }

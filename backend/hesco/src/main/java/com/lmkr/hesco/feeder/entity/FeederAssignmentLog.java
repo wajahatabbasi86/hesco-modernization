@@ -2,9 +2,30 @@ package com.lmkr.hesco.feeder.entity;
 
 import com.lmkr.hesco.adminbound.entity.SubDivision;
 import com.lmkr.hesco.user.entity.AppUser;
-import jakarta.persistence.*;
 import java.time.OffsetDateTime;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "feeder_assignment_log")
 public class FeederAssignmentLog {
@@ -33,15 +54,4 @@ public class FeederAssignmentLog {
 
     @Column(name = "performed_at", nullable = false)
     private OffsetDateTime performedAt;
-
-    protected FeederAssignmentLog() {
-    }
-
-    public FeederAssignmentLog(Feeder feeder, SubDivision subDivision, Action action, AppUser performedBy) {
-        this.feeder = feeder;
-        this.subDivision = subDivision;
-        this.action = action;
-        this.performedBy = performedBy;
-        this.performedAt = OffsetDateTime.now();
-    }
 }

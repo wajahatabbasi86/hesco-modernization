@@ -1,12 +1,17 @@
 package com.lmkr.hesco.feeder.service;
 
 import com.lmkr.hesco.adminbound.entity.SubDivision;
+import com.lmkr.hesco.adminbound.repository.SubDivisionRepository;
 import com.lmkr.hesco.feeder.entity.Feeder;
 import com.lmkr.hesco.feeder.entity.FeederAssignmentLog;
 import com.lmkr.hesco.feeder.repository.FeederAssignmentLogRepository;
 import com.lmkr.hesco.feeder.repository.FeederRepository;
+import com.lmkr.hesco.gridstation.entity.GridStation;
+import com.lmkr.hesco.gridstation.repository.GridStationRepository;
 import com.lmkr.hesco.user.entity.AppUser;
+import com.lmkr.hesco.user.repository.AppUserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,17 +24,15 @@ import java.util.List;
  * (a trigger could have done both), it's now an explicit application
  * transaction boundary instead.
  */
+@AllArgsConstructor
 @Service
 public class FeederService {
 
     private final FeederRepository feederRepository;
     private final FeederAssignmentLogRepository assignmentLogRepository;
-
-    public FeederService(FeederRepository feederRepository,
-                          FeederAssignmentLogRepository assignmentLogRepository) {
-        this.feederRepository = feederRepository;
-        this.assignmentLogRepository = assignmentLogRepository;
-    }
+    private final GridStationRepository gridStationRepository;
+    private final AppUserRepository appUserRepository;
+    private final SubDivisionRepository subDivisionRepository;
 
     public Feeder findById(Long id) {
         return feederRepository.findById(id)
@@ -45,22 +48,75 @@ public class FeederService {
     }
 
     @Transactional
-    public Feeder assign(Long feederId, SubDivision subDivision, AppUser performedBy) {
+    public Feeder assign(Long feederId, Long subDivisionId, Long userId) {
         Feeder feeder = findById(feederId);
+        SubDivision subDivision = getSubDivision(subDivisionId);
+        AppUser user = getUser(userId);
+
         feeder.setSubDivision(subDivision);
-        Feeder saved = feederRepository.save(feeder);
-        assignmentLogRepository.save(
-            new FeederAssignmentLog(saved, subDivision, FeederAssignmentLog.Action.ASSIGN, performedBy));
-        return saved;
+
+        FeederAssignmentLog log = FeederAssignmentLog.builder()
+                .feeder(feeder)
+                .subDivision(subDivision)
+                .action(FeederAssignmentLog.Action.ASSIGN)
+                .performedBy(user)
+                .build();
+
+        assignmentLogRepository.save(log);
+
+        return feederRepository.save(feeder);
     }
 
     @Transactional
-    public Feeder unassign(Long feederId, AppUser performedBy) {
+    public Feeder unassign(Long feederId, Long userId) {
         Feeder feeder = findById(feederId);
-        SubDivision previous = feeder.getSubDivision();
-        assignmentLogRepository.save(
-            new FeederAssignmentLog(feeder, previous, FeederAssignmentLog.Action.UNASSIGN, performedBy));
+        AppUser user = getUser(userId);
+
+        FeederAssignmentLog log = FeederAssignmentLog.builder()
+                .feeder(feeder)
+                .subDivision(feeder.getSubDivision())
+                .action(FeederAssignmentLog.Action.UNASSIGN)
+                .performedBy(user)
+                .build();
+
+        assignmentLogRepository.save(log);
+
         feeder.setSubDivision(null);
+
+        return feederRepository.save(feeder);
+    }
+
+    public GridStation getGridStation(Long id) {
+        return gridStationRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Grid Station not found: " + id));
+    }
+
+    public SubDivision getSubDivision(Long id) {
+        return subDivisionRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Sub-Division not found: " + id));
+    }
+
+    public AppUser getUser(Long id) {
+        return appUserRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
+    }
+
+    public Feeder create(String code, String name, Long gridStationId) {
+
+        GridStation gridStation = null;
+
+        if (gridStationId != null) {
+            gridStation = gridStationRepository.findById(gridStationId)
+                    .orElseThrow(() ->
+                            new EntityNotFoundException("Grid Station not found: " + gridStationId));
+        }
+
+        Feeder feeder = Feeder.builder()
+                .code(code)
+                .name(name)
+                .gridStation(gridStation)
+                .build();
+
         return feederRepository.save(feeder);
     }
 }

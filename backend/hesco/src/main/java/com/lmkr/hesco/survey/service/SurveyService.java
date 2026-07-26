@@ -57,8 +57,18 @@ public class SurveyService {
         equipmentSequenceValidator.validate(sePoint, equipmentType, previousEndEquipment);
         gpsNumberService.assertUniqueOnSync(gpsNumber);
 
-        SurveyForm form = new SurveyForm(workOrder, sePoint, gpsNumber, equipmentType, lineLengthMeters,
-            submittedBy, latitude, longitude, remarks);
+        SurveyForm form = SurveyForm.builder()
+                .workOrder(workOrder)
+                .sePoint(sePoint)
+                .equipmentType(equipmentType)
+                .gpsNumber(gpsNumber)
+                .submittedBy(submittedBy)
+                .latitude(latitude)
+                .lineLengthMeters(lineLengthMeters)
+                .longitude(longitude)
+                .remarks(remarks)
+                .build();
+
         return surveyFormRepository.save(form);
     }
 }

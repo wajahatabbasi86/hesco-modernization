@@ -1,8 +1,23 @@
 package com.lmkr.hesco.workorder.entity;
 
 import com.lmkr.hesco.user.entity.AppUser;
-import jakarta.persistence.*;
 import java.time.OffsetDateTime;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+
 
 /**
  * One row per successfully applied transition — backs the Status-wise
@@ -10,6 +25,11 @@ import java.time.OffsetDateTime;
  * by WorkOrderStateMachineService in the same transaction as the
  * work_order.status update; there is no DB trigger writing this table.
  */
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "work_order_transition_log")
 public class WorkOrderTransitionLog {
@@ -44,17 +64,4 @@ public class WorkOrderTransitionLog {
     @Column(name = "performed_at", nullable = false)
     private OffsetDateTime performedAt;
 
-    protected WorkOrderTransitionLog() {
-    }
-
-    public WorkOrderTransitionLog(WorkOrder workOrder, WorkOrderStatus fromStatus, WorkOrderAction action,
-                                   WorkOrderStatus toStatus, AppUser performedBy, String comment) {
-        this.workOrder = workOrder;
-        this.fromStatus = fromStatus;
-        this.action = action;
-        this.toStatus = toStatus;
-        this.performedBy = performedBy;
-        this.comment = comment;
-        this.performedAt = OffsetDateTime.now();
-    }
 }
