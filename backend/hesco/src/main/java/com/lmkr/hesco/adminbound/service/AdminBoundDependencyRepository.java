@@ -1,5 +1,6 @@
 package com.lmkr.hesco.adminbound.service;
 
+import com.lmkr.hesco.user.entity.AppUser;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 
@@ -15,7 +16,7 @@ import org.springframework.data.repository.Repository;
  * every method here is a scalar count against a different root table;
  * kept as a thin @Query-only interface for that reason.
  */
-public interface AdminBoundDependencyRepository extends Repository<Object, Long> {
+public interface AdminBoundDependencyRepository extends Repository<AppUser, Long> {
 
     @Query("select count(u) from AppUser u where u.subDivision.id = :subDivisionId")
     long countUsersInSubDivision(Long subDivisionId);

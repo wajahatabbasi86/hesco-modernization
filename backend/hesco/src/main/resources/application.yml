@@ -3,9 +3,9 @@ spring:
     name: hesco-backend
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/hesco}
-    username: ${DB_USERNAME:hesco}
-    password: ${DB_PASSWORD:hesco}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/hesco_local}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
 
   jpa:
     hibernate:
@@ -16,11 +16,11 @@ spring:
         format_sql: true
 
   flyway:
-    enabled: true
+    enabled: false
     locations: classpath:db/migration
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:8084}
 
 logging:
   level:
