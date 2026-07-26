@@ -1,0 +1,61 @@
+# IDE & Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+.project
+.classpath
+.settings/
+
+# Build outputs
+target/
+dist/
+build/
+*.jar
+*.war
+*.ear
+
+# Node & NPM
+node_modules/
+package-lock.json
+yarn.lock
+npm-debug.log
+
+# Angular
+/frontend/mapviewer-ui/dist/
+/frontend/mapviewer-ui/.angular/
+/frontend/mapviewer-ui/.angular-cli.json
+
+# Maven
+.mvn/
+!.mvn/wrapper/
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.properties
+!application.yml
+!application-example.yml
+
+# Logs
+logs/
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Database
+*.db
+*.sqlite
