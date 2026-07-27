@@ -19,12 +19,7 @@ public class SurveyFormController {
 
     @GetMapping
     public ApiResponse<List<SurveyFormResponse>> listByWorkOrder(@RequestParam Long workOrderId) {
-        return ApiResponse.ok(
-                service.findByWorkOrder(workOrderId)
-                        .stream()
-                        .map(SurveyFormResponse::from)
-                        .toList()
-        );
+        return ApiResponse.ok(service.findResponsesByWorkOrder(workOrderId));
     }
 
     @PostMapping("/sync")

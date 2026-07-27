@@ -1,6 +1,7 @@
 package com.lmkr.hesco.survey.service;
 
 import com.lmkr.hesco.survey.api.dto.SurveyFormRequest;
+import com.lmkr.hesco.survey.api.dto.SurveyFormResponse;
 import com.lmkr.hesco.survey.entity.EquipmentType;
 import com.lmkr.hesco.survey.entity.SePointType;
 import com.lmkr.hesco.survey.entity.SurveyForm;
@@ -32,6 +33,22 @@ public class SurveyService {
     // ===============================
     // READ
     // ===============================
+    /**
+     * Returns DTOs, mapped inside this @Transactional method -
+     * SurveyForm.workOrder/equipmentType/submittedBy are all
+     * FetchType.LAZY, and open-in-view is disabled, so mapping these in
+     * the controller after an untransactional service call returned hit
+     * the same LazyInitializationException class of bug UserService.
+     * findAll() had.
+     */
+    @Transactional(readOnly = true)
+    public List<SurveyFormResponse> findResponsesByWorkOrder(Long workOrderId) {
+        return surveyFormRepository.findByWorkOrderIdOrderByIdAsc(workOrderId)
+                .stream()
+                .map(SurveyFormResponse::from)
+                .toList();
+    }
+
     public List<SurveyForm> findByWorkOrder(Long workOrderId) {
         return surveyFormRepository.findByWorkOrderIdOrderByIdAsc(workOrderId);
     }

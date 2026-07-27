@@ -20,21 +20,21 @@ public class ItemTypeController {
 
     @GetMapping
     public ApiResponse<List<ItemTypeResponse>> listByCategory(@RequestParam Integer categoryId) {
-        return ApiResponse.ok(service.findByCategory(categoryId).stream().map(ItemTypeResponse::from).toList());
+        return ApiResponse.ok(service.findByCategory(categoryId));
     }
 
     @GetMapping("/{id}")
     public ApiResponse<ItemTypeResponse> get(@PathVariable Integer id) {
-        return ApiResponse.ok(ItemTypeResponse.from(service.findById(id)));
+        return ApiResponse.ok(service.findById(id));
     }
 
     @PostMapping
     public ApiResponse<ItemTypeResponse> create(@Valid @RequestBody ItemTypeRequest request) {
-        return ApiResponse.ok(ItemTypeResponse.from(service.create(request)), "Item Type created");
+        return ApiResponse.ok(service.create(request), "Item Type created");
     }
 
     @PutMapping("/{id}")
     public ApiResponse<ItemTypeResponse> update(@PathVariable Integer id, @Valid @RequestBody ItemTypeRequest request) {
-        return ApiResponse.ok(ItemTypeResponse.from(service.update(id, request)), "Item Type updated");
+        return ApiResponse.ok(service.update(id, request), "Item Type updated");
     }
 }

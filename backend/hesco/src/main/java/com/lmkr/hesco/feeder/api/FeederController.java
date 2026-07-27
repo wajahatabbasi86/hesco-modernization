@@ -1,9 +1,11 @@
 package com.lmkr.hesco.feeder.api;
 
 import com.lmkr.hesco.common.api.ApiResponse;
-import com.lmkr.hesco.feeder.api.dto.*;
+import com.lmkr.hesco.feeder.api.dto.FeederAssignRequest;
+import com.lmkr.hesco.feeder.api.dto.FeederRequest;
+import com.lmkr.hesco.feeder.api.dto.FeederResponse;
+import com.lmkr.hesco.feeder.api.dto.FeederUnassignRequest;
 import com.lmkr.hesco.feeder.service.FeederService;
-import com.lmkr.hesco.user.entity.AppUser;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -19,27 +21,18 @@ public class FeederController {
 
     @GetMapping
     public ApiResponse<List<FeederResponse>> list() {
-        return ApiResponse.ok(service.findAll()
-                .stream()
-                .map(FeederResponse::from)
-                .toList());
+        return ApiResponse.ok(service.findAllResponses());
     }
 
     @GetMapping("/{id}")
     public ApiResponse<FeederResponse> get(@PathVariable Long id) {
-        return ApiResponse.ok(FeederResponse.from(service.findById(id)));
+        return ApiResponse.ok(service.findResponseById(id));
     }
 
     @PostMapping
     public ApiResponse<FeederResponse> create(@Valid @RequestBody FeederRequest request) {
         return ApiResponse.ok(
-                FeederResponse.from(
-                        service.create(
-                                request.code(),
-                                request.name(),
-                                request.gridStationId()
-                        )
-                ),
+                service.create(request.code(), request.name(), request.gridStationId()),
                 "Feeder created"
         );
     }
@@ -50,9 +43,7 @@ public class FeederController {
             @Valid @RequestBody FeederAssignRequest request
     ) {
         return ApiResponse.ok(
-                FeederResponse.from(
-                        service.assign(id, request.subDivisionId(), request.performedByUserId())
-                ),
+                service.assign(id, request.subDivisionId(), request.performedByUserId()),
                 "Feeder assigned"
         );
     }
@@ -63,9 +54,7 @@ public class FeederController {
             @Valid @RequestBody FeederUnassignRequest request
     ) {
         return ApiResponse.ok(
-                FeederResponse.from(
-                        service.unassign(id, request.performedByUserId())
-                ),
+                service.unassign(id, request.performedByUserId()),
                 "Feeder unassigned"
         );
     }

@@ -37,6 +37,24 @@ public class WorkOrderService {
     // READ
     // ===============================
 
+    /**
+     * Returns DTOs, mapped inside this @Transactional method - the
+     * previous findAll()/findById() (no transaction, entities returned
+     * and mapped by the controller afterward) hit the same
+     * LazyInitializationException class of bug as UserService.findAll()
+     * did: WorkOrder.feeder/status/createdBy/assignedTo are all
+     * FetchType.LAZY, and open-in-view is disabled.
+     */
+    @Transactional(readOnly = true)
+    public List<WorkOrderResponse> findAllResponses() {
+        return workOrderRepository.findAll().stream().map(WorkOrderResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public WorkOrderResponse findResponseById(Long id) {
+        return WorkOrderResponse.from(findById(id));
+    }
+
     public List<WorkOrder> findAll() {
         return workOrderRepository.findAll();
     }

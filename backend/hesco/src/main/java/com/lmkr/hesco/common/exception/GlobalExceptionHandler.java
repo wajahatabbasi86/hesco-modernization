@@ -35,27 +35,27 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidCodeHierarchyException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiErrorResponse handleInvalidCodeHierarchy(InvalidCodeHierarchyException ex, HttpServletRequest request) {
-        return buildError(ex.getMessage(), "BAD_REQUEST", request);
+        return buildError(ex.getMessage(), "BAD_REQUEST", ex, request);
     }
 
     @ExceptionHandler(RoleBoundMismatchException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiErrorResponse handleRoleBoundMismatch(RoleBoundMismatchException ex, HttpServletRequest request) {
-        return buildError(ex.getMessage(), "BAD_REQUEST", request);
+        return buildError(ex.getMessage(), "BAD_REQUEST", ex, request);
     }
 
     @ExceptionHandler(InvalidEquipmentSequenceException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiErrorResponse handleInvalidEquipmentSequence(InvalidEquipmentSequenceException ex,
                                                              HttpServletRequest request) {
-        return buildError(ex.getMessage(), "BAD_REQUEST", request);
+        return buildError(ex.getMessage(), "BAD_REQUEST", ex, request);
     }
 
     @ExceptionHandler(MissingRejectionCommentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiErrorResponse handleMissingRejectionComment(MissingRejectionCommentException ex,
                                                             HttpServletRequest request) {
-        return buildError(ex.getMessage(), "BAD_REQUEST", request);
+        return buildError(ex.getMessage(), "BAD_REQUEST", ex, request);
     }
 
     // ================= 403 FORBIDDEN — actor not permitted to perform the action =================
@@ -64,7 +64,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ApiErrorResponse handleCreatorScopeViolation(CreatorScopeViolationException ex,
                                                           HttpServletRequest request) {
-        return buildError(ex.getMessage(), "FORBIDDEN", request);
+        return buildError(ex.getMessage(), "FORBIDDEN", ex, request);
     }
 
     // ================= 404 NOT_FOUND =================
@@ -72,7 +72,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(EntityNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiErrorResponse handleNotFound(EntityNotFoundException ex, HttpServletRequest request) {
-        return buildError(ex.getMessage(), "NOT_FOUND", request);
+        return buildError(ex.getMessage(), "NOT_FOUND", ex, request);
     }
 
     // ================= 409 CONFLICT — conflicts with current state =================
@@ -81,20 +81,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DependentRecordsExistException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ApiErrorResponse handleDependency(DependentRecordsExistException ex, HttpServletRequest request) {
-        return buildError(ex.getMessage(), "CONFLICT", request);
+        return buildError(ex.getMessage(), "CONFLICT", ex, request);
     }
 
     @ExceptionHandler(DuplicateGpsNumberException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ApiErrorResponse handleDuplicateGpsNumber(DuplicateGpsNumberException ex, HttpServletRequest request) {
-        return buildError(ex.getMessage(), "CONFLICT", request);
+        return buildError(ex.getMessage(), "CONFLICT", ex, request);
     }
 
     @ExceptionHandler(InvalidWorkOrderTransitionException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ApiErrorResponse handleInvalidWorkOrderTransition(InvalidWorkOrderTransitionException ex,
                                                                HttpServletRequest request) {
-        return buildError(ex.getMessage(), "CONFLICT", request);
+        return buildError(ex.getMessage(), "CONFLICT", ex, request);
     }
 
     // ================= 400 VALIDATION_ERROR — @Valid field-level failures =================
@@ -108,7 +108,7 @@ public class GlobalExceptionHandler {
                 .map(err -> err.getField() + ": " + err.getDefaultMessage())
                 .collect(Collectors.joining(", "));
 
-        return buildError(message, "VALIDATION_ERROR", request);
+        return buildError(message, "VALIDATION_ERROR", ex, request);
     }
 
     // ================= 500 INTERNAL_ERROR — fallback only =================
@@ -116,10 +116,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiErrorResponse handleGeneric(Exception ex, HttpServletRequest request) {
-        return buildError("Unexpected error occurred", "INTERNAL_ERROR", request);
+        return buildError("Unexpected error occurred", "INTERNAL_ERROR", ex, request);
     }
 
-    private ApiErrorResponse buildError(String message, String code, HttpServletRequest request) {
+    private ApiErrorResponse buildError(String message, String code,Exception ex, HttpServletRequest request) {
+        ex.printStackTrace();
         return ApiErrorResponse.builder()
                 .success(false)
                 .message(message)

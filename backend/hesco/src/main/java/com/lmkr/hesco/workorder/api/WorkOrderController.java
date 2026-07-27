@@ -29,12 +29,7 @@ public class WorkOrderController {
     // ===============================
     @GetMapping
     public ApiResponse<List<WorkOrderResponse>> list() {
-        return ApiResponse.ok(
-                service.findAll()
-                        .stream()
-                        .map(WorkOrderResponse::from)
-                        .toList()
-        );
+        return ApiResponse.ok(service.findAllResponses());
     }
 
     // ===============================
@@ -42,9 +37,7 @@ public class WorkOrderController {
     // ===============================
     @GetMapping("/{id}")
     public ApiResponse<WorkOrderResponse> get(@PathVariable Long id) {
-        return ApiResponse.ok(
-                WorkOrderResponse.from(service.findById(id))
-        );
+        return ApiResponse.ok(service.findResponseById(id));
     }
 
     // ===============================

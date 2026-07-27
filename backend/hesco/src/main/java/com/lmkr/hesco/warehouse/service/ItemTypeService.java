@@ -1,6 +1,7 @@
 package com.lmkr.hesco.warehouse.service;
 
 import com.lmkr.hesco.warehouse.api.dto.ItemTypeRequest;
+import com.lmkr.hesco.warehouse.api.dto.ItemTypeResponse;
 import com.lmkr.hesco.warehouse.entity.ItemCategory;
 import com.lmkr.hesco.warehouse.entity.ItemType;
 import com.lmkr.hesco.warehouse.repository.ItemCategoryRepository;
@@ -12,14 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/**
- * SRS §3.5.2 (Add) / §3.5.3 (Update) — "Upon saving, the new/revised item
- * type shall become available for use in the Mobile Application survey
- * forms [and reports-service DTOs, per revamp plan §2.4]." Every write
- * goes through here so category/code uniqueness (SRS: the same item
- * type name shouldn't silently duplicate within a category) is checked
- * in one place.
- */
 @AllArgsConstructor
 @Service
 public class ItemTypeService {
@@ -27,41 +20,61 @@ public class ItemTypeService {
     private final ItemTypeRepository itemTypeRepository;
     private final ItemCategoryRepository categoryRepository;
 
-    public List<ItemType> findByCategory(Integer categoryId) {
-        return itemTypeRepository.findByCategoryIdOrderBySortOrderAsc(categoryId);
+    // READ - LIST
+    @Transactional(readOnly = true)
+    public List<ItemTypeResponse> findByCategory(Integer categoryId) {
+        return itemTypeRepository.findByCategoryIdOrderBySortOrderAsc(categoryId)
+                .stream()
+                .map(ItemTypeResponse::from)
+                .toList();
     }
 
-    public ItemType findById(Integer id) {
+    // READ - SINGLE
+    @Transactional(readOnly = true)
+    public ItemTypeResponse findById(Integer id) {
         return itemTypeRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("Item Type not found: " + id));
+                .map(ItemTypeResponse::from)
+                .orElseThrow(() -> new EntityNotFoundException("Item Type not found: " + id));
     }
 
+    // CREATE
     @Transactional
-    public ItemType create(ItemTypeRequest request) {
+    public ItemTypeResponse create(ItemTypeRequest request) {
+
         ItemCategory category = categoryRepository.findById(request.categoryId())
-            .orElseThrow(() -> new EntityNotFoundException("Item Category not found: " + request.categoryId()));
+                .orElseThrow(() ->
+                        new EntityNotFoundException("Item Category not found: " + request.categoryId()));
 
         ItemType itemType = ItemType.builder()
-            .category(category)
-            .code(request.code())
-            .displayLabel(request.displayLabel())
-            .sortOrder(request.sortOrder() != null ? request.sortOrder() : 0)
-            .build();
-        return itemTypeRepository.save(itemType);
+                .category(category)
+                .code(request.code())
+                .displayLabel(request.displayLabel())
+                .sortOrder(request.sortOrder() != null ? request.sortOrder() : 0)
+                .build();
+
+        return ItemTypeResponse.from(itemTypeRepository.save(itemType));
     }
 
+    //  UPDATE
     @Transactional
-    public ItemType update(Integer id, ItemTypeRequest request) {
-        ItemType itemType = findById(id);
+    public ItemTypeResponse update(Integer id, ItemTypeRequest request) {
+
+        ItemType itemType = itemTypeRepository.findById(id)
+                .orElseThrow(() ->
+                        new EntityNotFoundException("Item Type not found: " + id));
+
         ItemCategory category = categoryRepository.findById(request.categoryId())
-            .orElseThrow(() -> new EntityNotFoundException("Item Category not found: " + request.categoryId()));
+                .orElseThrow(() ->
+                        new EntityNotFoundException("Item Category not found: " + request.categoryId()));
 
         itemType.setCategory(category);
         itemType.setCode(request.code());
         itemType.setDisplayLabel(request.displayLabel());
+
         if (request.sortOrder() != null) {
             itemType.setSortOrder(request.sortOrder());
         }
-        return itemTypeRepository.save(itemType);
+
+        return ItemTypeResponse.from(itemTypeRepository.save(itemType));
     }
 }

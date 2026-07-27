@@ -20,6 +20,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 
 @Getter
@@ -40,6 +42,7 @@ public class WorkOrder {
     private Feeder feeder;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "wo_type", nullable = false)
     private WorkOrderType woType;
 
@@ -55,7 +58,10 @@ public class WorkOrder {
     @JoinColumn(name = "assigned_to")
     private AppUser assignedTo;
 
+    @Column(name = "location_lat" )
     private Double locationLat;
+
+    @Column(name = "location_lng")
     private Double locationLng;
 
     @CreationTimestamp

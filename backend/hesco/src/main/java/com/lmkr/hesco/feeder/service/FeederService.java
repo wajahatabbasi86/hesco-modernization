@@ -2,6 +2,7 @@ package com.lmkr.hesco.feeder.service;
 
 import com.lmkr.hesco.adminbound.entity.SubDivision;
 import com.lmkr.hesco.adminbound.repository.SubDivisionRepository;
+import com.lmkr.hesco.feeder.api.dto.FeederResponse;
 import com.lmkr.hesco.feeder.entity.Feeder;
 import com.lmkr.hesco.feeder.entity.FeederAssignmentLog;
 import com.lmkr.hesco.feeder.repository.FeederAssignmentLogRepository;
@@ -34,9 +35,27 @@ public class FeederService {
     private final AppUserRepository appUserRepository;
     private final SubDivisionRepository subDivisionRepository;
 
+    /**
+     * Returns DTOs, mapped WHILE the session is open (@Transactional on
+     * this method), since Feeder.gridStation/subDivision are both
+     * FetchType.LAZY and open-in-view is disabled - same
+     * LazyInitializationException risk as UserService.findAll() had,
+     * fixed the same way: map inside the transaction, not in the
+     * controller after the (previously untransactional) call returned.
+     */
+    @Transactional(readOnly = true)
+    public List<FeederResponse> findAllResponses() {
+        return feederRepository.findAll().stream().map(FeederResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public FeederResponse findResponseById(Long id) {
+        return FeederResponse.from(findById(id));
+    }
+
     public Feeder findById(Long id) {
         return feederRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("Feeder not found: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Feeder not found: " + id));
     }
 
     public List<Feeder> findAll() {
@@ -47,8 +66,21 @@ public class FeederService {
         return feederRepository.save(feeder);
     }
 
+    /**
+     * Returns FeederResponse, not Feeder - mapped HERE, inside the
+     * transaction. Previously returned the raw Feeder entity and the
+     * controller called FeederResponse.from(...) afterward; that broke
+     * because assign() only ever touches/sets subDivision, so
+     * feeder.gridStation stays an untouched lazy proxy - fine while the
+     * session is open, but FeederResponse.from() reads
+     * feeder.getGridStation() too, and by the time the controller got to
+     * it the session had already closed (open-in-view is disabled),
+     * throwing LazyInitializationException on GridStation specifically
+     * (not SubDivision, which HAD been touched/replaced with a real
+     * object and was therefore safe).
+     */
     @Transactional
-    public Feeder assign(Long feederId, Long subDivisionId, Long userId) {
+    public FeederResponse assign(Long feederId, Long subDivisionId, Long userId) {
         Feeder feeder = findById(feederId);
         SubDivision subDivision = getSubDivision(subDivisionId);
         AppUser user = getUser(userId);
@@ -64,11 +96,11 @@ public class FeederService {
 
         assignmentLogRepository.save(log);
 
-        return feederRepository.save(feeder);
+        return FeederResponse.from(feederRepository.save(feeder));
     }
 
     @Transactional
-    public Feeder unassign(Long feederId, Long userId) {
+    public FeederResponse unassign(Long feederId, Long userId) {
         Feeder feeder = findById(feederId);
         AppUser user = getUser(userId);
 
@@ -83,7 +115,7 @@ public class FeederService {
 
         feeder.setSubDivision(null);
 
-        return feederRepository.save(feeder);
+        return FeederResponse.from(feederRepository.save(feeder));
     }
 
     public GridStation getGridStation(Long id) {
@@ -101,7 +133,8 @@ public class FeederService {
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + id));
     }
 
-    public Feeder create(String code, String name, Long gridStationId) {
+    @Transactional
+    public FeederResponse create(String code, String name, Long gridStationId) {
 
         GridStation gridStation = null;
 
@@ -117,6 +150,6 @@ public class FeederService {
                 .gridStation(gridStation)
                 .build();
 
-        return feederRepository.save(feeder);
+        return FeederResponse.from(feederRepository.save(feeder));
     }
 }
