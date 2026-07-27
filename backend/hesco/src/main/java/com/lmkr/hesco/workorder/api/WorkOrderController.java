@@ -1,6 +1,7 @@
 package com.lmkr.hesco.workorder.api;
 
 import com.lmkr.hesco.common.api.ApiResponse;
+import com.lmkr.hesco.workorder.api.dto.WorkOrderAssignRequest;
 import com.lmkr.hesco.workorder.api.dto.WorkOrderCreateRequest;
 import com.lmkr.hesco.workorder.api.dto.WorkOrderResponse;
 import com.lmkr.hesco.workorder.api.dto.WorkOrderTransitionRequest;
@@ -47,7 +48,7 @@ public class WorkOrderController {
     }
 
     // ===============================
-    // CREATE
+    // CREATE (status CREATED, no assignee — see /assign)
     // ===============================
     @PostMapping
     public ApiResponse<WorkOrderResponse> create(
@@ -60,7 +61,21 @@ public class WorkOrderController {
     }
 
     // ===============================
-    // TRANSITION (STATE MACHINE)
+    // ASSIGN TO SURVEYOR (drives CREATED -> ASSIGNED via the state machine)
+    // ===============================
+    @PostMapping("/{id}/assign")
+    public ApiResponse<WorkOrderResponse> assign(
+            @PathVariable Long id,
+            @Valid @RequestBody WorkOrderAssignRequest request
+    ) {
+        return ApiResponse.ok(
+                service.assign(id, request),
+                "Work Order assigned"
+        );
+    }
+
+    // ===============================
+    // TRANSITION (STATE MACHINE — every other action)
     // ===============================
     @PostMapping("/{id}/transition")
     public ApiResponse<WorkOrderResponse> transition(
