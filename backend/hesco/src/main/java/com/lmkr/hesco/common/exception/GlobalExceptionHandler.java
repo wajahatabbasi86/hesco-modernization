@@ -120,7 +120,7 @@ public class GlobalExceptionHandler {
     }
 
     private ApiErrorResponse buildError(String message, String code,Exception ex, HttpServletRequest request) {
-        ex.printStackTrace();
+        //ex.printStackTrace();
         return ApiErrorResponse.builder()
                 .success(false)
                 .message(message)
