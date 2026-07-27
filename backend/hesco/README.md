@@ -71,14 +71,61 @@ its own `entity / repository / service / exception / api` layers.
   aren't in this pom at all — per the revamp plan's build order, they're
   intentionally last and have no code yet.
 
-## Suggested next step
+## ## Roadmap — remaining modules, in build order
 
-This hasn't been compiled — there's no Maven/network access in the
-environment this was written in to verify against the real dependency
-tree. Run `mvn clean compile` first; after that, the next real step
-per the revamp plan's build order is still `auth-service` with
-bound-scoped JWT claims, since every controller here currently trusts
-whatever user ID the caller passes in.
+Reordered from the original revamp-plan sequence based on actual
+dependency analysis (not just plan order). Auth was pushed later
+because nothing currently reads real identity anyway — building
+reports/dashboard read-heavy modules first surfaces the reference-data
+gaps before auth work has to be threaded through them.
+
+1. **`reports-service`** — blocked on two things that don't exist yet:
+   (a) fixed enumerated lookup tables (transformer capacity buckets,
+   structure types, HT/LT conductor types — SRS §2.4), which should
+   reuse the `warehouse` category→item-type pattern rather than
+   hardcoded Java enums; (b) Pole/Conductor/Transformer/Meter detail
+   tables (SRS §8.3.3–8.3.6) so there's actual asset data to aggregate.
+   Porting the refcursor/JDBC pattern from GEPCO's reports-service is
+   the easy part once those two exist.
+2. **`dashboard-service`** — Circle/Division/Sub-Division/date-range
+   filters, 11 named summary counts (SRS §3.9). Well-specified, and
+   `admin-bound` + `work-order` are already queryable — no open design
+   questions.
+3. **`auth-service`** — JWT + IMEI device binding + bound-scoped claims
+   (Circle/Division/Sub-Division baked into the token) so
+   `work-order-service`'s per-role query scoping stops being
+   theoretical. Every existing controller needs a follow-up pass to
+   pull actor identity from the token instead of the request body's
+   `*UserId` fields.
+4. **`line-loss-service`** — standalone Python microservice wrapping
+   "Power Panda," called from the gateway/monolith rather than ported
+   to Java. Architecturally isolated — second language, own
+   deployment story.
+5. **`transmission-line-service`** — entirely new domain, no GEPCO
+   equivalent: second mobile survey app, separate approval flow
+   (Planning Engineer only, not the 4-tier WO chain), new asset types
+   (towers, capacitor/battery banks, circuits).
+6. **`area-planning-service`** — reconductoring, bifurcation,
+   rerouting, line-loss rerun trigger. Extends GEPCO's
+   `AreaPlanningController` domain; the rerun hook depends on
+   `line-loss-service` existing.
+7. **`gis-map-service`** — direct port of GEPCO's already-built Path A
+   scaffold (Show Feeders on Map, identify, legend, print,
+   measurement, search-by-pole-number). Lowest design risk of
+   everything remaining — proven pattern, mostly reuse — but placed
+   last in this pass since nothing else depends on it.
+
+## Known gaps inside modules already built
+
+- Pole/Conductor/Transformer/Meter detail tables (SRS §8.3.3–8.3.6) —
+  needed by `reports-service`, see roadmap item 1.
+- HT/LT/Full-Update work-order-type constraint on top of equipment
+  sequencing — still an open decision (new column vs. second Java check).
+- 6-vs-9 roles SRS inconsistency — still open, `role` table seeds all 9.
+- GPS Number format disagreement (SRS body vs. Appendix A) — still needs
+  HESCO/LMKR sign-off; `GpsNumberService` still implements Appendix A.
+- Flyway is currently disabled — migrations exist but aren't applied
+  automatically; trivial to re-enable once pointed at a real DB.
 
 ## Pass 3 — fixes from code review (this drop)
 
