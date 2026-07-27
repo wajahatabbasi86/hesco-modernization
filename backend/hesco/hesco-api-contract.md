@@ -669,3 +669,81 @@ Ordered by `sortOrder` ascending.
 
 **Request body**: same as Create.
 **Response**: updated item type. `message`: `"Item Type updated"`. `404` if not found.
+
+---
+
+## Module: Reports
+
+Feeder Assets Reports (SRS §3.15). Every endpoint requires at least one
+of `circleId`, `divisionId`, `subDivisionId`, `feederId` — unlike other
+modules' list endpoints, an unscoped call is rejected rather than
+returning a utility-wide result. `dateFrom`/`dateTo` alone do not
+satisfy this requirement.
+
+Each report returns a fixed set of rows/fields — the enumerated lists
+from SRS §2.4 — not a dynamic pivot.
+
+### Common query parameters (all four endpoints)
+
+| Param | Type | Constraints |
+|---|---|---|
+| circleId | number | optional |
+| divisionId | number | optional |
+| subDivisionId | number | optional |
+| feederId | number | optional |
+| dateFrom | string (ISO 8601 timestamp) | optional, filters on survey sync time |
+| dateTo | string (ISO 8601 timestamp) | optional, filters on survey sync time |
+
+At least one of `circleId`/`divisionId`/`subDivisionId`/`feederId` is
+required. **400** (`BAD_REQUEST`) if none are supplied.
+
+### Pole structure summary
+
+`GET /api/reports/pole-structure-summary`
+
+**Response** `data`: array of, one row per pole structure type with at
+least one surveyed pole in scope
+
+| Field | Type | Notes |
+|---|---|---|
+| code | string | structure type code (from the `PRIMARY_STRUCTURE`/`SECONDARY_STRUCTURE` lookup category) |
+| label | string | structure type display label |
+| count | number | count of surveyed poles of this type in scope |
+
+### Conductor summary
+
+`GET /api/reports/conductor-summary`
+
+**Response** `data`: array of, one row per conductor type with at least
+one surveyed segment in scope
+
+| Field | Type | Notes |
+|---|---|---|
+| code | string | conductor type code (from the `HT_CONDUCTOR`/`LT_CONDUCTOR` lookup category) |
+| label | string | conductor type display label |
+| count | number | count of surveyed segments of this type in scope |
+| totalLengthMeters | number | sum of surveyed segment length, decimal |
+
+### Transformer capacity summary
+
+`GET /api/reports/transformer-capacity-summary`
+
+**Response** `data`: array of, one row per capacity bucket with at
+least one surveyed transformer in scope
+
+| Field | Type | Notes |
+|---|---|---|
+| code | string | capacity bucket code (from the `TRANSFORMER_CAPACITY` lookup category) |
+| label | string | capacity bucket display label, e.g. "100 KVA" |
+| count | number | count of surveyed transformers of this capacity in scope |
+
+### Meter summary
+
+`GET /api/reports/meter-summary`
+
+**Response** `data`: object — flat count, no lookup dimension (meters
+aren't typed against a lookup category)
+
+| Field | Type | Notes |
+|---|---|---|
+| count | number | count of surveyed meters in scope |
