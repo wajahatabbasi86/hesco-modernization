@@ -9,6 +9,7 @@ import com.lmkr.hesco.gridstation.repository.PowerTransformerRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -19,6 +20,16 @@ public class PowerTransformerService {
     private final PowerTransformerRepository transformerRepository;
     private final GridStationRepository gridStationRepository;
 
+    /**
+     * @Transactional added: without it, findByGridStationId()/findAll()
+     * each run in their own short-lived transaction (Spring Data JPA
+     * default), which closes before .stream().map(PowerTransformerResponse
+     * ::from) runs back in this method - and PowerTransformer.gridStation
+     * is FetchType.LAZY with open-in-view disabled, so that map() call
+     * would throw LazyInitializationException exactly like
+     * UserService.findAll() originally did.
+     */
+    @Transactional(readOnly = true)
     public List<PowerTransformerResponse> findAll(Long gridStationId) {
         List<PowerTransformer> transformers = (gridStationId != null)
                 ? transformerRepository.findByGridStationId(gridStationId)

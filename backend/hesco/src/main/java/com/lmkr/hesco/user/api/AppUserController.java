@@ -25,12 +25,12 @@ public class AppUserController {
 
     @GetMapping
     public ApiResponse<List<AppUserResponse>> list() {
-        return ApiResponse.ok(userService.findAll().stream().map(AppUserResponse::from).toList());
+        return ApiResponse.ok(userService.findAll());
     }
 
     @GetMapping("/{id}")
     public ApiResponse<AppUserResponse> get(@PathVariable Long id) {
-        return ApiResponse.ok(AppUserResponse.from(userService.findById(id)));
+        return ApiResponse.ok(userService.findResponseById(id));
     }
 
     @PostMapping

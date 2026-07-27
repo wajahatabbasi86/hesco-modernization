@@ -16,7 +16,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
+import org.hibernate.annotations.CreationTimestamp;
 
 
 /**
@@ -61,6 +61,7 @@ public class WorkOrderTransitionLog {
     @Column(columnDefinition = "text")
     private String comment;
 
+    @CreationTimestamp
     @Column(name = "performed_at", nullable = false)
     private OffsetDateTime performedAt;
 

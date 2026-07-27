@@ -22,7 +22,7 @@ public class WorkOrderStatus {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Short id;
+    private Long id;
 
     @Column(nullable = false, unique = true, length = 40)
     private String code;

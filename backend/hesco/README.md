@@ -79,3 +79,36 @@ tree. Run `mvn clean compile` first; after that, the next real step
 per the revamp plan's build order is still `auth-service` with
 bound-scoped JWT claims, since every controller here currently trusts
 whatever user ID the caller passes in.
+
+## Pass 3 — fixes from code review (this drop)
+
+Per discussion, addressed 4 of the 5 known issues (Flyway enablement
+explicitly deferred — not required for now):
+
+1. **`GlobalExceptionHandler` now maps every custom exception** —
+   `InvalidCodeHierarchyException`, `RoleBoundMismatchException`,
+   `InvalidEquipmentSequenceException`, `MissingRejectionCommentException`
+   → 400; `CreatorScopeViolationException` → 403;
+   `DuplicateGpsNumberException`, `InvalidWorkOrderTransitionException`,
+   `DependentRecordsExistException` → 409 — matching
+   `hesco-api-contract.md`'s error-code table exactly. Nothing falls
+   through to the generic 500 handler anymore except truly unexpected errors.
+2. **`WorkOrderService.create()` no longer sets `assignedTo` directly.**
+   A work order is created in `CREATED` status with no assignee. New
+   `POST /api/work-orders/{id}/assign` endpoint (`WorkOrderAssignRequest`:
+   `surveyorUserId`, `actorUserId`) drives the `CREATED -> ASSIGN ->
+   ASSIGNED` transition through `WorkOrderStateMachineService`, same as
+   every other status change — status and assignee can't drift apart.
+3. ~~`flyway.enabled: false`~~ — deferred, not required right now.
+4. **New `warehouse` module** (`item_category`/`item_type`, SRS §3.5):
+   full `entity/repository/service/api` layer, matching the `V3`
+   migration schema exactly. `GET/POST /api/warehouse/categories`,
+   `GET/POST/PUT /api/warehouse/item-types`.
+5. **Tests added** for the four core validators/services:
+   `AdminBoundCodeValidatorTest`, `UserRoleBoundValidatorTest`,
+   `EquipmentSequenceValidatorTest`, `WorkOrderStateMachineServiceTest`
+   — all pure Mockito/JUnit 5, no live database required, which was the
+   whole point of moving this logic out of Postgres triggers.
+
+`hesco-api-contract.md` updated with the new `/assign` endpoint and the
+full `Warehouse` module section.

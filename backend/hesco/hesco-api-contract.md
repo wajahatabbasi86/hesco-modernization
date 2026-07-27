@@ -534,6 +534,27 @@ approval chain.
 assigned unit.
 **404** if `feederId` or `createdByUserId` doesn't resolve.
 
+### Assign
+
+`POST /api/work-orders/{id}/assign`
+
+Hands a `CREATED` work order to a Surveyor. This is the only way a work
+item's `assignedToUserId` is ever set — `create()` never sets it directly
+(see Known Issues fix #2). Internally runs the `CREATED -> ASSIGN ->
+ASSIGNED` transition through the same state machine as every other
+action, so the status and the assignee can never end up out of sync.
+
+**Request body**
+
+| Field | Type | Constraints |
+|---|---|---|
+| surveyorUserId | number | required, must reference an existing user (the Surveyor being assigned) |
+| actorUserId | number | required, must reference an existing user (the Creator performing the assignment; must hold the Creator role for the transition to be legal) |
+
+**Response**: the work item, now `ASSIGNED` with `assignedToUserId` set. `message`: `"Work Order assigned"`.
+**404** if `surveyorUserId` or `actorUserId` doesn't resolve.
+**409** if the work item isn't currently `CREATED`, or the actor's role can't perform `ASSIGN`.
+
 ### Transition
 
 `POST /api/work-orders/{id}/transition`
@@ -569,3 +590,82 @@ status, and actor's role.
   parameter (e.g. `?circleId=`, `?gridStationId=`, `?workOrderId=`)
   return every record when the parameter is omitted, except where the
   parameter is explicitly marked required above.
+
+---
+
+## Module: Warehouse (reference data)
+
+Configurable lookup lists (SRS §3.5) — transformer capacity buckets,
+pole/structure types, HT/LT conductor types, etc. — organized as a
+category (`item_category`) containing ordered values (`item_type`).
+Backs both the mobile survey form's dropdowns and reports-service's
+fixed enumerated columns (SRS §3.15.2), rather than either hardcoding
+the SRS's lists as Java enums.
+
+### List categories
+
+`GET /api/warehouse/categories`
+
+**Response** `data`: array of
+
+| Field | Type | Notes |
+|---|---|---|
+| id | number | |
+| code | string | e.g. `TRANSFORMER_CAPACITY`, `HT_CONDUCTOR` |
+| name | string | |
+| active | boolean | |
+
+### Get one category
+
+`GET /api/warehouse/categories/{id}` — same shape. `404` if not found.
+
+### Create category
+
+`POST /api/warehouse/categories`
+
+**Request body**: `code` (string, required), `name` (string, required).
+**Response**: created category. `message`: `"Item Category created"`.
+
+### List item types in a category
+
+`GET /api/warehouse/item-types?categoryId={categoryId}`
+
+**Response** `data`: array of
+
+| Field | Type | Notes |
+|---|---|---|
+| id | number | |
+| categoryId | number | |
+| categoryCode | string | |
+| code | string | machine-safe key, e.g. `KVA_10` |
+| displayLabel | string | human label, e.g. `"10 KVA"` |
+| sortOrder | number | controls display/report column ordering |
+| active | boolean | |
+
+Ordered by `sortOrder` ascending.
+
+### Get one item type
+
+`GET /api/warehouse/item-types/{id}` — same shape. `404` if not found.
+
+### Create item type
+
+`POST /api/warehouse/item-types`
+
+**Request body**
+
+| Field | Type | Constraints |
+|---|---|---|
+| categoryId | number | required, must reference an existing category |
+| code | string | required |
+| displayLabel | string | required |
+| sortOrder | number | optional, defaults to 0 |
+
+**Response**: created item type. `message`: `"Item Type created"`. `404` if `categoryId` doesn't resolve.
+
+### Update item type
+
+`PUT /api/warehouse/item-types/{id}`
+
+**Request body**: same as Create.
+**Response**: updated item type. `message`: `"Item Type updated"`. `404` if not found.
