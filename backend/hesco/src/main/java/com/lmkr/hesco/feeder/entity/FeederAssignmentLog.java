@@ -19,6 +19,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
 
 
 @Getter
@@ -52,6 +53,7 @@ public class FeederAssignmentLog {
     @JoinColumn(name = "performed_by", nullable = false)
     private AppUser performedBy;
 
+    @CreationTimestamp
     @Column(name = "performed_at", nullable = false)
     private OffsetDateTime performedAt;
 }
