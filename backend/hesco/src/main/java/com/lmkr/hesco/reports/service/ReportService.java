@@ -4,7 +4,7 @@ import com.lmkr.hesco.reports.api.dto.MeterSummaryResponse;
 import com.lmkr.hesco.reports.api.dto.ReportCountItem;
 import com.lmkr.hesco.reports.api.dto.ReportLengthItem;
 import com.lmkr.hesco.reports.exception.MissingReportScopeException;
-import com.lmkr.hesco.reports.repository.ReportRepository;
+import com.lmkr.hesco.reports.repository.ReportQueryRepository;
 import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ReportService {
 
-    private final ReportRepository reportRepository;
+    private final ReportQueryRepository reportRepository;
 
     @Transactional(readOnly = true)
     public List<ReportCountItem> poleStructureSummary(Long circleId, Long divisionId, Long subDivisionId,

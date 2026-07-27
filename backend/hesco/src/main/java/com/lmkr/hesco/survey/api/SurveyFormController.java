@@ -26,8 +26,11 @@ public class SurveyFormController {
     public ApiResponse<SurveyFormResponse> submit(
             @Valid @RequestBody SurveyFormRequest request
     ) {
+        // submitForResponse (not submit()) so the saved detail row
+        // (pole/conductor/transformer/meter) comes back in the response
+        // instead of being silently dropped.
         return ApiResponse.ok(
-                SurveyFormResponse.from(service.submit(request)),
+                service.submitForResponse(request),
                 "Survey form synced"
         );
     }
