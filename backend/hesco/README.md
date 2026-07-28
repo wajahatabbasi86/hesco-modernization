@@ -159,3 +159,43 @@ explicitly deferred — not required for now):
 
 `hesco-api-contract.md` updated with the new `/assign` endpoint and the
 full `Warehouse` module section.
+
+## Pass 4 — survey detail tables wired end-to-end (this drop)
+
+Fixed the two blocking issues found in review of `feature/reports-service`:
+
+1. **New `V5__survey_detail_tables.sql`** — creates `pole_detail`,
+   `conductor_detail`, `transformer_detail`, `meter_detail`, matching the
+   `PoleDetail`/`ConductorDetail`/`TransformerDetail`/`MeterDetail`
+   entities exactly (these existed with no migration before this pass —
+   `ddl-auto: validate` would have failed at startup the moment Flyway
+   actually ran).
+2. **`SurveyService.submit()` now actually writes the detail rows.**
+   `SurveyFormRequest` gained four optional nested fields (`poleDetail`,
+   `conductorDetail`, `transformerDetail`, `meterDetail`); exactly the
+   one matching a form's `equipmentTypeCode` is now required (SRS
+   §8.3.3/§8.3.5/§8.3.6), and `conductorDetail` is required independently
+   whenever `sePoint` is `END_POINT` (§8.3.4) — enforced by new
+   `InvalidSurveyDetailException` (400), wired into
+   `GlobalExceptionHandler`. Each detail code (`structureTypeCode`,
+   `conductorTypeCode`, `capacityCode`) is resolved against `item_type`
+   and checked against the expected `item_category`
+   (`PRIMARY_STRUCTURE`/`SECONDARY_STRUCTURE`, `HT_CONDUCTOR`/
+   `LT_CONDUCTOR` per work-order type, `TRANSFORMER_CAPACITY`) — so
+   `reports-service`'s joins against these tables will actually return
+   data instead of always being empty.
+3. **Bonus one-liner**: `SurveyForm.syncedAt` is now set at submit time —
+   it was never set before, so `reports-service`'s `dateFrom`/`dateTo`
+   filters (which filter on `syncedAt`) would have silently excluded
+   every row.
+4. `SurveyFormResponse` now includes the matching detail sub-object
+   (`poleDetail`/`conductorDetail`/`transformerDetail`/`meterDetail`,
+   whichever applies) in both `GET /api/survey-forms` and
+   `POST /api/survey-forms/sync` — previously would have been read back
+   as `null` even after being saved, since nothing populated it.
+
+Deliberately NOT addressed in this pass (unchanged, still open):
+Flyway is still disabled; the `common/config/JpaConfig.java` question
+from the last discussion; the HT/LT-vs-FULL_UPDATE conductor-category
+ambiguity is handled pragmatically (either category accepted for
+FULL_UPDATE) rather than resolved, same open-question status as before.

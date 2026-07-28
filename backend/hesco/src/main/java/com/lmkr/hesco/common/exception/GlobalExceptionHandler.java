@@ -3,8 +3,10 @@ package com.lmkr.hesco.common.exception;
 import com.lmkr.hesco.adminbound.exception.DependentRecordsExistException;
 import com.lmkr.hesco.adminbound.exception.InvalidCodeHierarchyException;
 import com.lmkr.hesco.common.api.ApiErrorResponse;
+import com.lmkr.hesco.reports.exception.MissingReportScopeException;
 import com.lmkr.hesco.survey.exception.DuplicateGpsNumberException;
 import com.lmkr.hesco.survey.exception.InvalidEquipmentSequenceException;
+import com.lmkr.hesco.survey.exception.InvalidSurveyDetailException;
 import com.lmkr.hesco.user.exception.RoleBoundMismatchException;
 import com.lmkr.hesco.workorder.exception.CreatorScopeViolationException;
 import com.lmkr.hesco.workorder.exception.InvalidWorkOrderTransitionException;
@@ -55,6 +57,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiErrorResponse handleMissingRejectionComment(MissingRejectionCommentException ex,
                                                             HttpServletRequest request) {
+        return buildError(ex.getMessage(), "BAD_REQUEST", ex, request);
+    }
+
+    @ExceptionHandler(MissingReportScopeException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiErrorResponse handleMissingReportScope(MissingReportScopeException ex, HttpServletRequest request) {
         return buildError(ex.getMessage(), "BAD_REQUEST", ex, request);
     }
 
@@ -119,8 +127,15 @@ public class GlobalExceptionHandler {
         return buildError("Unexpected error occurred", "INTERNAL_ERROR", ex, request);
     }
 
+    @ExceptionHandler(InvalidSurveyDetailException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiErrorResponse handleInvalidSurveyDetail(InvalidSurveyDetailException ex,
+                                                      HttpServletRequest request) {
+        return buildError(ex.getMessage(), "BAD_REQUEST", ex, request);
+    }
+
     private ApiErrorResponse buildError(String message, String code,Exception ex, HttpServletRequest request) {
-        //ex.printStackTrace();
+        ex.printStackTrace();
         return ApiErrorResponse.builder()
                 .success(false)
                 .message(message)

@@ -1,21 +1,24 @@
 package com.lmkr.hesco.survey.service;
 
-import com.lmkr.hesco.survey.api.dto.SurveyFormRequest;
-import com.lmkr.hesco.survey.api.dto.SurveyFormResponse;
-import com.lmkr.hesco.survey.entity.EquipmentType;
-import com.lmkr.hesco.survey.entity.SePointType;
-import com.lmkr.hesco.survey.entity.SurveyForm;
-import com.lmkr.hesco.survey.repository.EquipmentTypeRepository;
-import com.lmkr.hesco.survey.repository.SurveyFormRepository;
+import com.lmkr.hesco.survey.api.dto.*;
+import com.lmkr.hesco.survey.entity.*;
+import com.lmkr.hesco.survey.exception.InvalidSurveyDetailException;
+import com.lmkr.hesco.survey.repository.*;
 import com.lmkr.hesco.user.entity.AppUser;
 import com.lmkr.hesco.user.repository.AppUserRepository;
+import com.lmkr.hesco.warehouse.entity.ItemCategory;
+import com.lmkr.hesco.warehouse.entity.ItemType;
+import com.lmkr.hesco.warehouse.repository.ItemCategoryRepository;
+import com.lmkr.hesco.warehouse.repository.ItemTypeRepository;
 import com.lmkr.hesco.workorder.entity.WorkOrder;
+import com.lmkr.hesco.workorder.entity.WorkOrderType;
 import com.lmkr.hesco.workorder.repository.WorkOrderRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,29 +26,40 @@ import java.util.Optional;
 @Service
 public class SurveyService {
 
+    private static final String FEEDER_POLE = "FEEDER_POLE";
+    private static final String PRIMARY_POLE = "PRIMARY_POLE";
+    private static final String SECONDARY_POLE = "SECONDARY_POLE";
+    private static final String TRANSFORMER = "TRANSFORMER";
+    private static final String METER = "METER";
+
     private final SurveyFormRepository surveyFormRepository;
     private final EquipmentTypeRepository equipmentTypeRepository;
     private final EquipmentSequenceValidator equipmentSequenceValidator;
     private final GpsNumberService gpsNumberService;
     private final WorkOrderRepository workOrderRepository;
     private final AppUserRepository userRepository;
+    private final ItemCategoryRepository itemCategoryRepository;
+    private final ItemTypeRepository itemTypeRepository;
+    private final PoleDetailRepository poleDetailRepository;
+    private final ConductorDetailRepository conductorDetailRepository;
+    private final TransformerDetailRepository transformerDetailRepository;
+    private final MeterDetailRepository meterDetailRepository;
 
     // ===============================
     // READ
     // ===============================
     /**
-     * Returns DTOs, mapped inside this @Transactional method -
-     * SurveyForm.workOrder/equipmentType/submittedBy are all
-     * FetchType.LAZY, and open-in-view is disabled, so mapping these in
-     * the controller after an untransactional service call returned hit
-     * the same LazyInitializationException class of bug UserService.
-     * findAll() had.
+     * Returns DTOs, mapped inside this @Transactional method - SurveyForm's
+     * associations are all FetchType.LAZY and open-in-view is disabled.
+     * Detail rows are fetched per-form via findBySurveyFormId; fine at
+     * per-work-order volumes (a handful of forms), worth batching if this
+     * is ever called for a whole feeder/report-scale list instead.
      */
     @Transactional(readOnly = true)
     public List<SurveyFormResponse> findResponsesByWorkOrder(Long workOrderId) {
         return surveyFormRepository.findByWorkOrderIdOrderByIdAsc(workOrderId)
                 .stream()
-                .map(SurveyFormResponse::from)
+                .map(this::toResponseWithDetail)
                 .toList();
     }
 
@@ -53,13 +67,44 @@ public class SurveyService {
         return surveyFormRepository.findByWorkOrderIdOrderByIdAsc(workOrderId);
     }
 
+    private SurveyFormResponse toResponseWithDetail(SurveyForm form) {
+        PoleDetailResponse pole = poleDetailRepository.findBySurveyFormId(form.getId())
+                .map(PoleDetailResponse::from).orElse(null);
+        ConductorDetailResponse conductor = conductorDetailRepository.findBySurveyFormId(form.getId())
+                .map(ConductorDetailResponse::from).orElse(null);
+        TransformerDetailResponse transformer = transformerDetailRepository.findBySurveyFormId(form.getId())
+                .map(TransformerDetailResponse::from).orElse(null);
+        MeterDetailResponse meter = meterDetailRepository.findBySurveyFormId(form.getId())
+                .map(MeterDetailResponse::from).orElse(null);
+        return SurveyFormResponse.from(form, pole, conductor, transformer, meter);
+    }
+
     // ===============================
-    // SUBMIT (CLEAN)
+    // SUBMIT
     // ===============================
     @Transactional
     public SurveyForm submit(SurveyFormRequest request) {
+        return submitWithResponse(request).form();
+    }
 
-        // 1. Resolve entities
+    @Transactional
+    public SurveyFormResponse submitForResponse(SurveyFormRequest request) {
+        SubmitResult result = submitWithResponse(request);
+        return SurveyFormResponse.from(
+                result.form(),
+                result.poleDetail() != null ? PoleDetailResponse.from(result.poleDetail()) : null,
+                result.conductorDetail() != null ? ConductorDetailResponse.from(result.conductorDetail()) : null,
+                result.transformerDetail() != null ? TransformerDetailResponse.from(result.transformerDetail()) : null,
+                result.meterDetail() != null ? MeterDetailResponse.from(result.meterDetail()) : null
+        );
+    }
+
+    private record SubmitResult(SurveyForm form, PoleDetail poleDetail, ConductorDetail conductorDetail,
+                                TransformerDetail transformerDetail, MeterDetail meterDetail) {}
+
+    private SubmitResult submitWithResponse(SurveyFormRequest request) {
+
+        // 1. Resolve entities (Section Information — SRS §8.3.1)
         WorkOrder workOrder = workOrderRepository.findById(request.workOrderId())
                 .orElseThrow(() ->
                         new EntityNotFoundException("Work Order not found: " + request.workOrderId()));
@@ -74,7 +119,7 @@ public class SurveyService {
 
         SePointType sePoint = SePointType.valueOf(request.sePoint());
 
-        // 2. Validation
+        // 2. Section-level validation (equipment sequence + GPS number)
         List<SurveyForm> existing = surveyFormRepository.findByWorkOrderIdOrderByIdAsc(workOrder.getId());
 
         Optional<EquipmentType> previousEndEquipment = existing.isEmpty()
@@ -85,7 +130,7 @@ public class SurveyService {
 
         gpsNumberService.assertUniqueOnSync(request.gpsNumber());
 
-        // 3. Build entity
+        // 3. Save Section Information
         SurveyForm form = SurveyForm.builder()
                 .workOrder(workOrder)
                 .sePoint(sePoint)
@@ -96,8 +141,142 @@ public class SurveyService {
                 .latitude(request.latitude())
                 .longitude(request.longitude())
                 .remarks(request.remarks())
+                .syncedAt(OffsetDateTime.now())
                 .build();
 
-        return surveyFormRepository.save(form);
+        form = surveyFormRepository.save(form);
+
+        // 4. Conditional detail payload (SRS §8.3.3-§8.3.6) — exactly the
+        //    block matching this form's equipment type is required; any
+        //    other detail block being present is rejected outright rather
+        //    than silently ignored, since a mismatched payload usually
+        //    means the mobile client got the equipment type wrong.
+        String equipmentCode = equipmentType.getCode();
+
+        PoleDetail poleDetail = null;
+        ConductorDetail conductorDetail = null;
+        TransformerDetail transformerDetail = null;
+        MeterDetail meterDetail = null;
+
+        boolean expectsPole = equipmentCode.equals(FEEDER_POLE) || equipmentCode.equals(PRIMARY_POLE)
+                || equipmentCode.equals(SECONDARY_POLE);
+        boolean expectsTransformer = equipmentCode.equals(TRANSFORMER);
+        boolean expectsMeter = equipmentCode.equals(METER);
+        boolean expectsConductor = sePoint == SePointType.END_POINT; // SRS §8.3.4 — independent of equipment type
+
+        if (expectsPole) {
+            if (request.poleDetail() == null) {
+                throw new InvalidSurveyDetailException(
+                        "poleDetail is required when equipmentTypeCode is " + equipmentCode + " (SRS §8.3.3)");
+            }
+            // Feeder Pole / Primary Pole use the primary (HT-side) structure
+            // list; Secondary Pole uses the secondary (LT-side) list (SRS §3.15.2.2).
+            String structureCategory = equipmentCode.equals(SECONDARY_POLE) ? "SECONDARY_STRUCTURE" : "PRIMARY_STRUCTURE";
+            ItemType structureType = resolveItemType(structureCategory, request.poleDetail().structureTypeCode(), "poleDetail.structureTypeCode");
+
+            poleDetail = PoleDetail.builder()
+                    .surveyForm(form)
+                    .structureType(structureType)
+                    .poleNumber(request.poleDetail().poleNumber())
+                    .heightMeters(request.poleDetail().heightMeters())
+                    .build();
+            poleDetail = poleDetailRepository.save(poleDetail);
+        } else if (request.poleDetail() != null) {
+            throw new InvalidSurveyDetailException(
+                    "poleDetail must not be supplied when equipmentTypeCode is " + equipmentCode);
+        }
+
+        if (expectsTransformer) {
+            if (request.transformerDetail() == null) {
+                throw new InvalidSurveyDetailException(
+                        "transformerDetail is required when equipmentTypeCode is TRANSFORMER (SRS §8.3.5)");
+            }
+            ItemType capacity = resolveItemType(
+                    "TRANSFORMER_CAPACITY", request.transformerDetail().capacityCode(), "transformerDetail.capacityCode");
+
+            transformerDetail = TransformerDetail.builder()
+                    .surveyForm(form)
+                    .capacity(capacity)
+                    .transformerName(request.transformerDetail().transformerName())
+                    .cableSize(request.transformerDetail().cableSize())
+                    .ctRatio(request.transformerDetail().ctRatio())
+                    .build();
+            transformerDetail = transformerDetailRepository.save(transformerDetail);
+        } else if (request.transformerDetail() != null) {
+            throw new InvalidSurveyDetailException(
+                    "transformerDetail must not be supplied when equipmentTypeCode is " + equipmentCode);
+        }
+
+        if (expectsMeter) {
+            if (request.meterDetail() == null) {
+                throw new InvalidSurveyDetailException(
+                        "meterDetail is required when equipmentTypeCode is METER (SRS §8.3.6)");
+            }
+            meterDetail = MeterDetail.builder()
+                    .surveyForm(form)
+                    .meterNumber(request.meterDetail().meterNumber())
+                    .consumerReference(request.meterDetail().consumerReference())
+                    .build();
+            meterDetail = meterDetailRepository.save(meterDetail);
+        } else if (request.meterDetail() != null) {
+            throw new InvalidSurveyDetailException(
+                    "meterDetail must not be supplied when equipmentTypeCode is " + equipmentCode);
+        }
+
+        if (expectsConductor) {
+            if (request.conductorDetail() == null) {
+                throw new InvalidSurveyDetailException(
+                        "conductorDetail is required when sePoint is END_POINT (SRS §8.3.4)");
+            }
+            // HT work orders use HT_CONDUCTOR, LT use LT_CONDUCTOR; a
+            // FULL_UPDATE work order covers both networks so either
+            // category is accepted there (SRS doesn't disambiguate this —
+            // same open question as the HT/LT-vs-equipment-sequence gap
+            // noted in the README).
+            String conductorCategory = workOrder.getWoType() == WorkOrderType.LT ? "LT_CONDUCTOR" : "HT_CONDUCTOR";
+            ItemType conductorType;
+            if (workOrder.getWoType() == WorkOrderType.FULL_UPDATE) {
+                conductorType = resolveItemTypeAnyOf(
+                        List.of("HT_CONDUCTOR", "LT_CONDUCTOR"), request.conductorDetail().conductorTypeCode(),
+                        "conductorDetail.conductorTypeCode");
+            } else {
+                conductorType = resolveItemType(conductorCategory, request.conductorDetail().conductorTypeCode(),
+                        "conductorDetail.conductorTypeCode");
+            }
+
+            conductorDetail = ConductorDetail.builder()
+                    .surveyForm(form)
+                    .conductorType(conductorType)
+                    .build();
+            conductorDetail = conductorDetailRepository.save(conductorDetail);
+        } else if (request.conductorDetail() != null) {
+            throw new InvalidSurveyDetailException(
+                    "conductorDetail must not be supplied when sePoint is not END_POINT");
+        }
+
+        return new SubmitResult(form, poleDetail, conductorDetail, transformerDetail, meterDetail);
+    }
+
+    private ItemType resolveItemType(String categoryCode, String itemCode, String fieldLabel) {
+        ItemCategory category = itemCategoryRepository.findByCode(categoryCode)
+                .orElseThrow(() -> new InvalidSurveyDetailException(
+                        "Reference category not seeded: " + categoryCode));
+        return itemTypeRepository.findByCategoryIdAndCode(category.getId(), itemCode)
+                .orElseThrow(() -> new InvalidSurveyDetailException(
+                        fieldLabel + " '" + itemCode + "' is not a valid " + categoryCode + " value"));
+    }
+
+    private ItemType resolveItemTypeAnyOf(List<String> categoryCodes, String itemCode, String fieldLabel) {
+        for (String categoryCode : categoryCodes) {
+            Optional<ItemCategory> category = itemCategoryRepository.findByCode(categoryCode);
+            if (category.isPresent()) {
+                Optional<ItemType> match = itemTypeRepository.findByCategoryIdAndCode(category.get().getId(), itemCode);
+                if (match.isPresent()) {
+                    return match.get();
+                }
+            }
+        }
+        throw new InvalidSurveyDetailException(
+                fieldLabel + " '" + itemCode + "' is not a valid value in " + categoryCodes);
     }
 }
