@@ -40,7 +40,7 @@ its own `entity / repository / service / exception / api` layers.
    response DTOs) — this was entirely missing before:
 
    | Module | Controllers |
-   |---|---|
+      |---|---|
    | `adminbound` | `CircleController`, `DivisionController`, `SubDivisionController` |
    | `user` | `AppUserController` (backed by new `UserService`, which runs `UserRoleBoundValidator` before every save) |
    | `feeder` | `FeederController` (create + assign/unassign) |
@@ -79,14 +79,14 @@ because nothing currently reads real identity anyway — building
 reports/dashboard read-heavy modules first surfaces the reference-data
 gaps before auth work has to be threaded through them.
 
-1. **`reports-service`** — blocked on two things that don't exist yet:
-   (a) fixed enumerated lookup tables (transformer capacity buckets,
-   structure types, HT/LT conductor types — SRS §2.4), which should
-   reuse the `warehouse` category→item-type pattern rather than
-   hardcoded Java enums; (b) Pole/Conductor/Transformer/Meter detail
-   tables (SRS §8.3.3–8.3.6) so there's actual asset data to aggregate.
-   Porting the refcursor/JDBC pattern from GEPCO's reports-service is
-   the easy part once those two exist.
+1. **`reports-service`** — in progress, see Pass 5 below. The two
+   blockers noted originally ((a) fixed enumerated lookup tables, (b)
+   Pole/Conductor/Transformer/Meter detail tables) are both resolved —
+   `warehouse`'s `item_category`/`item_type` pattern is what backs the
+   report columns, and `V5__survey_detail_tables.sql` (Pass 4) created
+   the detail tables. Flat summary endpoints and the four feeder-row
+   reports (device/structure/conductor/meter) are built; open items are
+   listed under Pass 5.
 2. **`dashboard-service`** — Circle/Division/Sub-Division/date-range
    filters, 11 named summary counts (SRS §3.9). Well-specified, and
    `admin-bound` + `work-order` are already queryable — no open design
@@ -117,8 +117,6 @@ gaps before auth work has to be threaded through them.
 
 ## Known gaps inside modules already built
 
-- Pole/Conductor/Transformer/Meter detail tables (SRS §8.3.3–8.3.6) —
-  needed by `reports-service`, see roadmap item 1.
 - HT/LT/Full-Update work-order-type constraint on top of equipment
   sequencing — still an open decision (new column vs. second Java check).
 - 6-vs-9 roles SRS inconsistency — still open, `role` table seeds all 9.
@@ -126,6 +124,7 @@ gaps before auth work has to be threaded through them.
   HESCO/LMKR sign-off; `GpsNumberService` still implements Appendix A.
 - Flyway is currently disabled — migrations exist but aren't applied
   automatically; trivial to re-enable once pointed at a real DB.
+- Reports-service open items — see Pass 5.
 
 ## Pass 3 — fixes from code review (this drop)
 
@@ -199,3 +198,89 @@ Flyway is still disabled; the `common/config/JpaConfig.java` question
 from the last discussion; the HT/LT-vs-FULL_UPDATE conductor-category
 ambiguity is handled pragmatically (either category accepted for
 FULL_UPDATE) rather than resolved, same open-question status as before.
+
+## Pass 5 — Feeder Assets Reports: item_type-driven columns, dedicated/GD split, zero-fill (this drop)
+
+Branch `feature/reports-service` → `feature/reports-service-survey-detail-fixes`.
+Builds the four feeder-row reports (SRS §3.15.2) on top of the flat
+summary endpoints and detail tables from Pass 4, then fixes three
+issues found by comparing against the legacy app's actual report
+output/HTML.
+
+### What's done
+
+1. **`device-report` / `structure-report` / `conductor-report` /
+   `meter-report`** added under `/api/reports/`, alongside the
+   pre-existing flat summary endpoints
+   (`pole-structure-summary`, `conductor-summary`,
+   `transformer-capacity-summary`, `meter-summary`, plus their
+   paginated variants). All require circle/division/sub-division/
+   feeder scope, same as the flat endpoints.
+2. **Columns are item_type-driven throughout, not hardcoded.**
+   `FeederDeviceReportRow`/`FeederStructureReportRow`/
+   `FeederConductorReportRow` all carry `List<ReportCountItem>` (or
+   `ReportLengthItem` for conductors) rather than a fixed set of
+   fields — confirmed against `item_category`/`item_type` seed data:
+
+   | item_category           | Report          |
+      |---------------------------|------------------|
+   | `TRANSFORMER_CAPACITY`    | Device           |
+   | `EQUIPMENT_USE`           | Device (duty split) |
+   | `PRIMARY_STRUCTURE` / `SECONDARY_STRUCTURE` | Structure |
+   | `HT_CONDUCTOR` / `LT_CONDUCTOR` | Conductor |
+
+3. **Device Report corrected to match the legacy Dedicated vs.
+   General Duty split.** Initially built as a single flat capacity
+   list; comparing against the legacy report's actual JSON/HTML showed
+   transformer counts are cross-tabulated by capacity **and** duty type
+   (`EQUIPMENT_USE`: `DEDICATED` / `GENERAL_DUTY`), each with its own
+   subtotal. `FeederDeviceReportRow` now carries
+   `dedicatedTransformers[]` / `dedicatedTotal` and
+   `generalDutyTransformers[]` / `generalDutyTotal`, plus `total`.
+4. **Zero-fill**: `device-report`/`structure-report`/`conductor-report`
+   now emit every item_type in the relevant category(ies) per feeder —
+   including zero-count ones — and every feeder in scope, even ones
+   with no survey data at all (all-zero row), matching the legacy
+   report's fixed-column behavior. Implemented as
+   `CROSS JOIN feeder × item_type` with a `LEFT JOIN` to the detail
+   table (correlated to that feeder's survey forms via a subquery),
+   replacing the earlier inner-join aggregate that only returned rows
+   for item_types actually present in the data.
+5. **Postman collection updated** — `HESCO-Backend_postman_collection_-_Updated.json`,
+   section "8. Reports Service", with requests + response-shape test
+   scripts for all four feeder-row reports (kept in sync with the
+   Device Report shape changes above).
+
+### Explicit decisions / trade-offs (Pass 5)
+
+- `dateFrom`/`dateTo` filtering is **skipped** on the three zero-fill
+  reports (`device-report`/`structure-report`/`conductor-report`) for
+  now — the `CROSS JOIN`-based query drives its `FROM` off `feeder`
+  directly rather than off the detail table, so date filtering would
+  need to move into the correlated subquery; deferred rather than
+  guessed. The flat summary endpoints and `meter-report` still filter
+  on `dateFrom`/`dateTo` as before.
+- The correlated per-feeder subquery in the zero-fill `LEFT JOIN` is
+  more expensive than a plain inner join — not yet checked against
+  query plans on real data volume.
+
+### Known gaps / open items
+
+- **Capacitor Banks** — the legacy Device Report has a "Capacitor
+  Banks (KVA)" column group. There is no capacitor capacity (KVR)
+  `item_category` in current seed data (`TRANSFORMER_CAPACITY` only
+  has the 9 KVA transformer tiers), and it's unclear whether capacitor
+  readings belong on `transformer_detail` with a discriminator or a
+  separate table. Intentionally left out rather than faked — needs a
+  schema decision.
+- **`transformer_detail.equipment_use_id`** — assumed FK column name
+  for the `EQUIPMENT_USE` item_type; not yet confirmed against the
+  live entity/table (only `item_category`/`item_type` data was
+  available to check against, not `transformer_detail`'s own columns).
+- **"Grand Total (KVA)"** from the legacy report (sum of count × KVA
+  value per tier, not just a row count) is not implemented — would
+  need numeric capacity values stored or parsed somewhere, not just
+  the `display_label` strings currently in `item_type`.
+- Same open items carried over from earlier passes still apply
+  (Flyway disabled, 6-vs-9 roles, GPS Number format, HT/LT/Full-Update
+  constraint) — see "Known gaps inside modules already built" above.
