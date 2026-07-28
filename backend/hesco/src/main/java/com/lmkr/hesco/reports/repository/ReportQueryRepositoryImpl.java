@@ -374,9 +374,9 @@ public class ReportQueryRepositoryImpl implements ReportQueryRepository {
         """);
 
         return jdbc.query(sql.toString(), params,
-                        rs.getLong(4), rs.getLong(5), rs.getLong(6), rs.getLong(7),
-                        rs.getLong(8), rs.getLong(9), rs.getLong(10), rs.getLong(11),
-                        rs.getLong(12), rs.getLong(13)
+                (rs, i) -> new DeviceSummaryRow(
+                        rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4),
+                        rs.getString(5), rs.getString(6), rs.getLong(7)
                 )
         );
     }

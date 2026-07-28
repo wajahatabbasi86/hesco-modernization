@@ -19,4 +19,4 @@ public record MeterReportRow(
         BigDecimal sanctionedLoad,
         String meterNumber,
         String meterMake
-) {
+) {}

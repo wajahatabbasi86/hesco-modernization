@@ -12,13 +12,14 @@ import com.lmkr.hesco.reports.exception.MissingReportScopeException;
 import com.lmkr.hesco.reports.repository.ConductorSummaryRow;
 import com.lmkr.hesco.reports.repository.DeviceSummaryRow;
 import com.lmkr.hesco.reports.repository.ReportQueryRepository;
-import com.lmkr.hesco.reports.repository.StructureSummaryRow;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import com.lmkr.hesco.reports.repository.StructureSummaryRow;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

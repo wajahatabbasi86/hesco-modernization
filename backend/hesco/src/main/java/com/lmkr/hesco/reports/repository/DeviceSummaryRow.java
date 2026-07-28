@@ -6,7 +6,7 @@ package com.lmkr.hesco.reports.repository;
  * nested per-feeder shape in ReportService. Not exposed via the API.
  * Mirrors StructureSummaryRow/ConductorSummaryRow.
  */
-record DeviceSummaryRow(
+public record DeviceSummaryRow(
         Long feederId,
         String feederCode,
         String feederName,
@@ -14,4 +14,4 @@ record DeviceSummaryRow(
         String itemCode,
         String itemLabel,
         long count
-) {
+) {}

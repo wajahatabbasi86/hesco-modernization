@@ -5,7 +5,7 @@ package com.lmkr.hesco.reports.repository;
  * one (feeder, structure group, item_type) tuple. Grouped into the
  * nested per-feeder shape in ReportService. Not exposed via the API.
  */
-record StructureSummaryRow(
+public record StructureSummaryRow(
         Long feederId,
         String feederCode,
         String feederName,
@@ -14,4 +14,4 @@ record StructureSummaryRow(
         String itemCode,
         String itemLabel,
         long count
-) {
+) {}

@@ -18,4 +18,4 @@ public record FeederConductorReportRow(
         BigDecimal htTotalKm,
         List<ReportLengthItem> ltConductors,
         BigDecimal ltTotalKm
-) {
+) {}

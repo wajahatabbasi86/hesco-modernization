@@ -7,7 +7,7 @@ import java.math.BigDecimal;
  * (feeder, HT/LT zone, item_type) tuple. Grouped into the nested
  * per-feeder shape in ReportService. Not exposed via the API.
  */
-record ConductorSummaryRow(
+public record ConductorSummaryRow(
         Long feederId,
         String feederCode,
         String feederName,
@@ -17,3 +17,4 @@ record ConductorSummaryRow(
         String itemLabel,
         long count,
         BigDecimal totalLengthMeters
+) {}
