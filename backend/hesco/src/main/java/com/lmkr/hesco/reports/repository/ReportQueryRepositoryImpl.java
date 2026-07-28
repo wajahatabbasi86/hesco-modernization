@@ -343,39 +343,46 @@ public class ReportQueryRepositoryImpl implements ReportQueryRepository {
             Long circleId, Long divisionId, Long subDivisionId,
             Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
 
-        // Capacity tiers come from item_type (category TRANSFORMER_CAPACITY)
-        // instead of a hardcoded KVA list, so this stays correct if tiers
-        // are added/renamed/removed via seed data — same item_type-driven
-        // approach as structureReportRaw/conductorReportRaw. Confirm
-        // 'TRANSFORMER_CAPACITY' against actual item_category.code seed
-        // data and adjust the WHERE clause below if different.
+        // Capacity tiers come from item_type (category TRANSFORMER_CAPACITY,
+        // confirmed against data-item_type.csv: KVA_10...KVA_1500).
+        // Dedicated vs. General Duty is a second item_type FK on
+        // transformer_detail (category EQUIPMENT_USE, codes DEDICATED /
+        // GENERAL_DUTY per the same seed data) — NOT a variant of the
+        // capacity category. Confirm the FK column name below
+        // (assumed td.equipment_use_id) against the actual entity/table.
+        //
+        // Capacitor banks are NOT queried here: there is no capacitor
+        // capacity (KVR) item_category in current seed data.
         StringBuilder sql = new StringBuilder("""
             SELECT f.id, f.code, f.name, gs.name,
-                   it.code, it.display_label, COUNT(td.id)
+                   duty.code, cap.code, cap.display_label, COUNT(td.id)
             FROM transformer_detail td
-            JOIN item_type it ON it.id = td.capacity_id
-            JOIN item_category ic ON ic.id = it.category_id
+            JOIN item_type cap ON cap.id = td.capacity_id
+            JOIN item_category capCat ON capCat.id = cap.category_id
+            JOIN item_type duty ON duty.id = td.equipment_use_id
+            JOIN item_category dutyCat ON dutyCat.id = duty.category_id
             JOIN survey_form sf ON sf.id = td.survey_form_id
             JOIN work_order wo ON wo.id = sf.work_order_id
             JOIN feeder f ON f.id = wo.feeder_id
             LEFT JOIN grid_station gs ON gs.id = f.grid_station_id
             LEFT JOIN sub_division sd ON sd.id = f.sub_division_id
             LEFT JOIN division d ON d.id = sd.division_id
-            WHERE ic.code = 'TRANSFORMER_CAPACITY'
+            WHERE capCat.code = 'TRANSFORMER_CAPACITY'
+              AND dutyCat.code = 'EQUIPMENT_USE'
         """);
 
         Map<String, Object> params = new HashMap<>();
         applyFilters(sql, params, circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
 
         sql.append("""
-            GROUP BY f.id, f.code, f.name, gs.name, it.code, it.display_label, it.sort_order
-            ORDER BY f.code, it.sort_order
+            GROUP BY f.id, f.code, f.name, gs.name, duty.code, cap.code, cap.display_label, cap.sort_order
+            ORDER BY f.code, duty.code, cap.sort_order
         """);
 
         return jdbc.query(sql.toString(), params,
                 (rs, i) -> new DeviceSummaryRow(
                         rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4),
-                        rs.getString(5), rs.getString(6), rs.getLong(7)
+                        rs.getString(5), rs.getString(6), rs.getString(7), rs.getLong(8)
                 )
         );
     }

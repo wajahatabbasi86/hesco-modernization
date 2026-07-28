@@ -80,12 +80,24 @@ public class ReportService {
 
         return byFeeder.values().stream().map(rows -> {
             var first = rows.get(0);
-            List<ReportCountItem> devices = rows.stream()
+
+            List<ReportCountItem> dedicated = rows.stream()
+                .filter(r -> "DEDICATED".equals(r.dutyCode()))
                 .map(r -> new ReportCountItem(r.itemCode(), r.itemLabel(), r.count()))
                 .toList();
+            List<ReportCountItem> generalDuty = rows.stream()
+                .filter(r -> "GENERAL_DUTY".equals(r.dutyCode()))
+                .map(r -> new ReportCountItem(r.itemCode(), r.itemLabel(), r.count()))
+                .toList();
+
+            long dedicatedTotal = dedicated.stream().mapToLong(ReportCountItem::count).sum();
+            long generalDutyTotal = generalDuty.stream().mapToLong(ReportCountItem::count).sum();
+
             return new FeederDeviceReportRow(
                 first.feederCode(), first.feederName(), first.substationName(),
-                devices, devices.stream().mapToLong(ReportCountItem::count).sum());
+                dedicated, dedicatedTotal,
+                generalDuty, generalDutyTotal,
+                dedicatedTotal + generalDutyTotal);
         }).toList();
     }
 
