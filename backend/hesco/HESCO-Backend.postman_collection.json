@@ -1,0 +1,2335 @@
+{
+  "info": {
+    "name": "HESCO Backend - hesco-backend-clean-architecture",
+    "description": "End-to-end runnable collection against the hesco-modernization backend (branch: hesco-backend-clean-architecture). Requests are ordered so running the collection top-to-bottom (Runner or Ctrl+Alt+Enter) builds a realistic Circle -> Division -> Sub-Division -> Feeder -> Work Order -> Survey Form -> full 4-tier approval chain, with each request's response IDs captured into collection variables and fed into the next request. Assumes the DB has only the Flyway seed data (roles, equipment types, item categories) - i.e. a fresh hesco_local. Role IDs referenced in test scripts match V1 seed order: 1=HESCO_ADMIN 2=GIS_ADMIN 3=APPROVER_2 4=APPROVER_1 5=CREATOR 6=SURVEYOR 7=PLANNING_ENGINEER_AREA 8=PLANNING_ENGINEER_LINELOSS 9=DASHBOARD_USER.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8084",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Admin Bound (Circle / Division / Sub-Division)",
+      "description": "SRS \u00a73.1. Run in order - each create captures its id into a collection variable consumed by later folders.",
+      "item": [
+        {
+          "name": "Create Circle - Hyderabad",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin-bound/circles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin-bound",
+                "circles"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"110\",\n  \"name\": \"Hyderabad Circle\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Circle created\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"circleId\", json.data.id);",
+                  "pm.test(\"Circle id captured\", () => pm.expect(json.data.id).to.be.a(\"number\"));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Circles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin-bound/circles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin-bound",
+                "circles"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "Get Circle by Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin-bound/circles/{{circleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin-bound",
+                "circles",
+                "{{circleId}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "Create Division - Hyderabad City",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin-bound/divisions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin-bound",
+                "divisions"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"circleId\": \"{{circleId}}\",\n  \"code\": \"1101\",\n  \"name\": \"Hyderabad City Division\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Division created\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"divisionId\", json.data.id);",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Divisions by Circle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin-bound/divisions?circleId={{circleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin-bound",
+                "divisions"
+              ],
+              "query": [
+                {
+                  "key": "circleId",
+                  "value": "{{circleId}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "Create Sub-Division - Latifabad",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin-bound/sub-divisions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin-bound",
+                "sub-divisions"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"divisionId\": \"{{divisionId}}\",\n  \"code\": \"11011\",\n  \"name\": \"Latifabad Sub-Division\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Sub-Division created\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"subDivisionId\", json.data.id);",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Sub-Divisions by Division",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin-bound/sub-divisions?divisionId={{divisionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin-bound",
+                "sub-divisions"
+              ],
+              "query": [
+                {
+                  "key": "divisionId",
+                  "value": "{{divisionId}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Users",
+      "description": "SRS \u00a73.2. One user per role exercised later in the Work Order lifecycle. roleId values match the V1 migration seed order exactly.",
+      "item": [
+        {
+          "name": "Create User - HESCO Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"hesco.admin\",\n  \"password\": \"Admin@12345\",\n  \"firstName\": \"Ayesha\",\n  \"lastName\": \"Khan\",\n  \"contactNumber\": \"03001234567\",\n  \"roleId\": 1\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Admin user created\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"adminUserId\", pm.response.json().data.id);",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create User - Creator (Latifabad Sub-Division)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"creator.latifabad\",\n  \"password\": \"Creator@12345\",\n  \"firstName\": \"Bilal\",\n  \"lastName\": \"Ahmed\",\n  \"contactNumber\": \"03011234567\",\n  \"roleId\": 5,\n  \"subDivisionId\": \"{{subDivisionId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Creator user created\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"creatorUserId\", pm.response.json().data.id);",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create User - Surveyor (mobile, IMEI required)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"surveyor.latifabad\",\n  \"password\": \"Surveyor@12345\",\n  \"firstName\": \"Usman\",\n  \"lastName\": \"Shaikh\",\n  \"contactNumber\": \"03021234567\",\n  \"roleId\": 6,\n  \"subDivisionId\": \"{{subDivisionId}}\",\n  \"imei\": \"356938035643809\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Surveyor user created\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"surveyorUserId\", pm.response.json().data.id);",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create User - Approver 1 (Hyderabad City Division)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"approver1.hyderabad\",\n  \"password\": \"Approver1@12345\",\n  \"firstName\": \"Fatima\",\n  \"lastName\": \"Malik\",\n  \"contactNumber\": \"03031234567\",\n  \"roleId\": 4,\n  \"divisionId\": \"{{divisionId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Approver 1 created\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"approver1UserId\", pm.response.json().data.id);",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create User - Approver 2 (Hyderabad Circle)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"approver2.hyderabad\",\n  \"password\": \"Approver2@12345\",\n  \"firstName\": \"Hamza\",\n  \"lastName\": \"Siddiqui\",\n  \"contactNumber\": \"03041234567\",\n  \"roleId\": 3,\n  \"circleId\": \"{{circleId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Approver 2 created\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"approver2UserId\", pm.response.json().data.id);",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create User - GIS Admin (system reviewer, no bound)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"gis.admin\",\n  \"password\": \"GisAdmin@12345\",\n  \"firstName\": \"Sana\",\n  \"lastName\": \"Qureshi\",\n  \"contactNumber\": \"03051234567\",\n  \"roleId\": 2\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"GIS Admin created\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"gisAdminUserId\", pm.response.json().data.id);",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Grid Station & Power Transformer",
+      "description": "SRS \u00a73.4.",
+      "item": [
+        {
+          "name": "Create Grid Station - Latifabad",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/grid-stations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "grid-stations"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"GS-LTF-01\",\n  \"name\": \"Latifabad Grid Station\",\n  \"latitude\": 25.3792,\n  \"longitude\": 68.3683\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Grid Station created\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"gridStationId\", pm.response.json().data.id);",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Grid Stations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/grid-stations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "grid-stations"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "Create Power Transformer - PT-1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/power-transformers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "power-transformers"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gridStationId\": \"{{gridStationId}}\",\n  \"transformerName\": \"PT-1\",\n  \"cableSize\": \"500 MCM\",\n  \"ctRatio\": \"400/5\",\n  \"capacityKva\": 100.0\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Power Transformer created\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"transformerId\", pm.response.json().data.id);",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Power Transformers by Grid Station",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/power-transformers?gridStationId={{gridStationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "power-transformers"
+              ],
+              "query": [
+                {
+                  "key": "gridStationId",
+                  "value": "{{gridStationId}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Feeder",
+      "description": "SRS \u00a73.3.",
+      "item": [
+        {
+          "name": "Create Feeder - FDR-110",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/feeders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "feeders"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"FDR-110\",\n  \"name\": \"Latifabad Feeder-1\",\n  \"gridStationId\": \"{{gridStationId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Feeder created\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"feederId\", pm.response.json().data.id);",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assign Feeder to Sub-Division",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/feeders/{{feederId}}/assign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "feeders",
+                "{{feederId}}",
+                "assign"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subDivisionId\": \"{{subDivisionId}}\",\n  \"performedByUserId\": \"{{adminUserId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Feeder assigned\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Feeder now shows target sub-division\", () =>",
+                  "    pm.expect(String(json.data.subDivisionId)).to.eql(String(pm.collectionVariables.get(\"subDivisionId\"))));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Feeders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/feeders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "feeders"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "Get Feeder by Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/feeders/{{feederId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "feeders",
+                "{{feederId}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Warehouse Configuration",
+      "description": "SRS \u00a73.5.",
+      "item": [
+        {
+          "name": "List Item Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/warehouse/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "warehouse",
+                "categories"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Categories returned\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "const poleClass = json.data.find(c => c.code === \"POLE_CLASS\");",
+                  "if (poleClass) {",
+                  "    pm.collectionVariables.set(\"poleClassCategoryId\", poleClass.id);",
+                  "}",
+                  "pm.test(\"POLE_CLASS category exists (seeded in V3)\", () => pm.expect(poleClass).to.not.be.undefined);",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Item Types - HT Conductor (seeded, 23 types)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/warehouse/item-types?categoryId=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "warehouse",
+                "item-types"
+              ],
+              "query": [
+                {
+                  "key": "categoryId",
+                  "value": "3"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "// categoryId 3 assumes fresh-seed ordering (TRANSFORMER_CAPACITY=1, PRIMARY_STRUCTURE=2,",
+                  "// SECONDARY_STRUCTURE=3 in V3... adjust if your DB has extra categories).",
+                  "// Safer: re-derive from the \"List Item Categories\" response above if this fails.",
+                  "pm.test(\"Item types returned\", () => pm.response.to.have.status(200));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Item Type - Pole Class 'PC Spun' (fills a previously-unseeded category)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/warehouse/item-types",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "warehouse",
+                "item-types"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": \"{{poleClassCategoryId}}\",\n  \"code\": \"PC_SPUN\",\n  \"displayLabel\": \"PC Spun\",\n  \"sortOrder\": 1\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Item type created\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"itemTypeId\", pm.response.json().data.id);",
+                  ""
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Work Order Lifecycle (full 4-tier chain)",
+      "description": "SRS \u00a73.6, \u00a78.3. Create -> Assign -> Survey (2 forms) -> Complete -> Validate -> Submit -> Approve x2 -> Post. Run top-to-bottom; each transition depends on the work order being in the exact status the previous request left it in.",
+      "item": [
+        {
+          "name": "Create Work Order - HT Survey on FDR-110",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "work-orders"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"feederId\": \"{{feederId}}\",\n  \"woType\": \"HT\",\n  \"createdByUserId\": \"{{creatorUserId}}\",\n  \"locationLat\": 25.3792,\n  \"locationLng\": 68.3683\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Work Order created in CREATED status\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data.statusCode).to.eql(\"CREATED\");",
+                  "});",
+                  "pm.collectionVariables.set(\"workOrderId\", pm.response.json().data.id);",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assign Work Order to Surveyor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-orders/{{workOrderId}}/assign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "work-orders",
+                "{{workOrderId}}",
+                "assign"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"surveyorUserId\": \"{{surveyorUserId}}\",\n  \"actorUserId\": \"{{creatorUserId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Work Order now ASSIGNED\", () =>",
+                  "    pm.expect(pm.response.json().data.statusCode).to.eql(\"ASSIGNED\"));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Survey Form - Feeder Pole (Start Point)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/survey-forms/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "survey-forms",
+                "sync"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workOrderId\": \"{{workOrderId}}\",\n  \"sePoint\": \"START_POINT\",\n  \"equipmentTypeCode\": \"FEEDER_POLE\",\n  \"gpsNumber\": \"{{gpsNumber1}}\",\n  \"submittedByUserId\": \"{{surveyorUserId}}\",\n  \"latitude\": 25.3795,\n  \"longitude\": 68.3688,\n  \"remarks\": \"Feeder pole - entry point from Latifabad Grid Station\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "// Builds a GPS Number per Appendix A widths implemented in GpsNumberService:",
+                  "// 4-digit UserNo + DDMMYY + 4-digit Serial (14 chars total).",
+                  "const now = new Date();",
+                  "const dd = String(now.getDate()).padStart(2, \"0\");",
+                  "const mm = String(now.getMonth() + 1).padStart(2, \"0\");",
+                  "const yy = String(now.getFullYear()).slice(-2);",
+                  "const userNo = String(pm.collectionVariables.get(\"surveyorUserId\")).padStart(4, \"0\").slice(-4);",
+                  "const serial = \"0001\";",
+                  "pm.collectionVariables.set(\"gpsNumber1\", userNo + dd + mm + yy + serial);",
+                  ""
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Survey form synced\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Equipment type is Feeder Pole\", () =>",
+                  "    pm.expect(pm.response.json().data.equipmentTypeCode).to.eql(\"FEEDER_POLE\"));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Survey Form - Primary Pole (End Point)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/survey-forms/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "survey-forms",
+                "sync"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workOrderId\": \"{{workOrderId}}\",\n  \"sePoint\": \"END_POINT\",\n  \"equipmentTypeCode\": \"PRIMARY_POLE\",\n  \"gpsNumber\": \"{{gpsNumber2}}\",\n  \"lineLengthMeters\": 145.5,\n  \"submittedByUserId\": \"{{surveyorUserId}}\",\n  \"latitude\": 25.3801,\n  \"longitude\": 68.3695,\n  \"remarks\": \"First primary pole, 145.5m from feeder pole\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "const now = new Date();",
+                  "const dd = String(now.getDate()).padStart(2, \"0\");",
+                  "const mm = String(now.getMonth() + 1).padStart(2, \"0\");",
+                  "const yy = String(now.getFullYear()).slice(-2);",
+                  "const userNo = String(pm.collectionVariables.get(\"surveyorUserId\")).padStart(4, \"0\").slice(-4);",
+                  "const serial = \"0002\";",
+                  "pm.collectionVariables.set(\"gpsNumber2\", userNo + dd + mm + yy + serial);",
+                  ""
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Second survey form synced\", () => pm.response.to.have.status(200));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Survey Forms for Work Order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/survey-forms?workOrderId={{workOrderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "survey-forms"
+              ],
+              "query": [
+                {
+                  "key": "workOrderId",
+                  "value": "{{workOrderId}}"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "Transition - Surveyor Completes Survey",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-orders/{{workOrderId}}/transition",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "work-orders",
+                "{{workOrderId}}",
+                "transition"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionCode\": \"COMPLETE_SURVEY\",\n  \"actorUserId\": \"{{surveyorUserId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Work Order now SURVEY_COMPLETED\", () =>",
+                  "    pm.expect(pm.response.json().data.statusCode).to.eql(\"SURVEY_COMPLETED\"));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transition - Creator Validates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-orders/{{workOrderId}}/transition",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "work-orders",
+                "{{workOrderId}}",
+                "transition"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionCode\": \"VALIDATE\",\n  \"actorUserId\": \"{{creatorUserId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Work Order now VALIDATED\", () =>",
+                  "    pm.expect(pm.response.json().data.statusCode).to.eql(\"VALIDATED\"));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transition - Creator Submits to Approver 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-orders/{{workOrderId}}/transition",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "work-orders",
+                "{{workOrderId}}",
+                "transition"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionCode\": \"SUBMIT\",\n  \"actorUserId\": \"{{creatorUserId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Work Order now SUBMITTED\", () =>",
+                  "    pm.expect(pm.response.json().data.statusCode).to.eql(\"SUBMITTED\"));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transition - Approver 1 Approves",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-orders/{{workOrderId}}/transition",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "work-orders",
+                "{{workOrderId}}",
+                "transition"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionCode\": \"APPROVE\",\n  \"actorUserId\": \"{{approver1UserId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Work Order now APPROVED_BY_APPROVER_1\", () =>",
+                  "    pm.expect(pm.response.json().data.statusCode).to.eql(\"APPROVED_BY_APPROVER_1\"));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transition - Approver 2 Approves",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-orders/{{workOrderId}}/transition",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "work-orders",
+                "{{workOrderId}}",
+                "transition"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionCode\": \"APPROVE\",\n  \"actorUserId\": \"{{approver2UserId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Work Order now APPROVED_BY_APPROVER_2\", () =>",
+                  "    pm.expect(pm.response.json().data.statusCode).to.eql(\"APPROVED_BY_APPROVER_2\"));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transition - GIS Admin Posts (final, live on GIS map)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-orders/{{workOrderId}}/transition",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "work-orders",
+                "{{workOrderId}}",
+                "transition"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionCode\": \"POST\",\n  \"actorUserId\": \"{{gisAdminUserId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Work Order now POSTED (terminal)\", () =>",
+                  "    pm.expect(pm.response.json().data.statusCode).to.eql(\"POSTED\"));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Final Work Order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-orders/{{workOrderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "work-orders",
+                "{{workOrderId}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Negative / Validation Examples",
+      "description": "Every request here is EXPECTED to fail with a 4xx - each one exercises a specific app-layer validator (AdminBoundCodeValidator, UserRoleBoundValidator, EquipmentSequenceValidator, WorkOrderStateMachineService) directly, proving the business rule lives in Java, not the DB. Run these AFTER folder 6, since several reuse ids captured there.",
+      "item": [
+        {
+          "name": "[Expect 400] Division code doesn't match parent Circle prefix",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin-bound/divisions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin-bound",
+                "divisions"
+              ]
+            },
+            "description": "AdminBoundCodeValidator.validateDivisionCode should reject this: code '9999' does not start with the parent circle's code (110).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"circleId\": \"{{circleId}}\",\n  \"code\": \"9999\",\n  \"name\": \"Wrong Prefix Division\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Rejected with 4xx (coding-convention violation)\", () =>",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 409, 422]));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Expect 400] Circle code wrong format (not 3 digits)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin-bound/circles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin-bound",
+                "circles"
+              ]
+            },
+            "description": "@Pattern(regexp = \"\\\\d{3}\") on CircleRequest.code should reject this at the DTO level.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"12\",\n  \"name\": \"Too Short Circle\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Rejected with 400 (bean validation)\", () => pm.response.to.have.status(400));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Expect 400] Surveyor created without IMEI",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "UserRoleBoundValidator should reject this: role SURVEYOR has requiresImei=true and no imei field was supplied (SRS \u00a73.2.3/\u00a78.1.1).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"surveyor.no.imei\",\n  \"password\": \"Surveyor@12345\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"NoImei\",\n  \"roleId\": 6,\n  \"subDivisionId\": \"{{subDivisionId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Rejected - IMEI required for Surveyor\", () =>",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 409, 422]));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Expect 400] HESCO Admin created WITH a bound assignment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "UserRoleBoundValidator should reject this: HESCO_ADMIN's assignedBoundType is SYSTEM_WIDE, which must have no circle/division/sub-division set.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin.with.bound\",\n  \"password\": \"Admin@12345\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"WrongBound\",\n  \"roleId\": 1,\n  \"subDivisionId\": \"{{subDivisionId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Rejected - system-wide role cannot have a bound\", () =>",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 409, 422]));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Expect 400] Approver 1 tries to REJECT without a comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-orders/{{workOrderId}}/transition",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "work-orders",
+                "{{workOrderId}}",
+                "transition"
+              ]
+            },
+            "description": "WorkOrderStateMachineService should reject this: the SUBMITTED->REJECT transition has requiresComment=true (SRS \u00a73.6.4.1 'mandatory comment'). NOTE: only run this against a work order still in SUBMITTED status - the happy-path chain above will already have moved {{workOrderId}} past SUBMITTED, so point this at a fresh work order in SUBMITTED status if reusing the same environment.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionCode\": \"REJECT\",\n  \"actorUserId\": \"{{approver1UserId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Rejected - comment required for REJECT\", () =>",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 409, 422]));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Expect 400] Surveyor tries to APPROVE a work order (wrong role for transition)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-orders/{{workOrderId}}/transition",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "work-orders",
+                "{{workOrderId}}",
+                "transition"
+              ]
+            },
+            "description": "WorkOrderStateMachineService.applyTransition looks up (fromStatus, action, role) - there is no SURVEYOR row for the APPROVE action, so this must fail regardless of the work order's current status.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionCode\": \"APPROVE\",\n  \"actorUserId\": \"{{surveyorUserId}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Rejected - no legal transition for this role/action pair\", () =>",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 409, 422]));",
+                  ""
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Expect 400] Survey form: Transformer used as a Start Point",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/survey-forms/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "survey-forms",
+                "sync"
+              ]
+            },
+            "description": "EquipmentSequenceValidator should reject this: TRANSFORMER.canBeStart = false.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workOrderId\": \"{{workOrderId}}\",\n  \"sePoint\": \"START_POINT\",\n  \"equipmentTypeCode\": \"TRANSFORMER\",\n  \"gpsNumber\": \"0001010199999\",\n  \"submittedByUserId\": \"{{surveyorUserId}}\",\n  \"remarks\": \"Deliberately invalid - Transformer cannot be a Start Point (SRS \\u00a78.3.2)\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "pm.test(\"Rejected - Transformer cannot be a Start Point\", () =>",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 409, 422]));",
+                  ""
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Reports Service (Feeder Assets Reports, SRS \u00a73.15)",
+      "description": "GET-only reporting endpoints under /api/reports. Every endpoint requires at least one of circleId/divisionId/subDivisionId/feederId - omitting all four returns 400 (MissingReportScopeException). dateFrom/dateTo are optional ISO-8601 OffsetDateTime filters. Run after folder 4 (Feeder) and folder 6 (Work Order Lifecycle) so {{feederId}} / {{circleId}} are populated from real survey data.",
+      "item": [
+        {
+          "name": "Pole Structure Summary - by Feeder",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/pole-structure-summary?feederId={{feederId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "pole-structure-summary"
+              ],
+              "query": [
+                {
+                  "key": "feederId",
+                  "value": "{{feederId}}"
+                }
+              ]
+            },
+            "description": "One row per pole/structure item_type in the relevant item_category, scoped to the given feeder. Fixed-column ReportCountItem shape: code, label, count."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response is an array\", () => pm.expect(json.data).to.be.an(\"array\"));",
+                  "if (json.data.length > 0) {",
+                  "    pm.test(\"Row has code/label/count\", () => {",
+                  "        const row = json.data[0];",
+                  "        pm.expect(row).to.have.property(\"code\");",
+                  "        pm.expect(row).to.have.property(\"label\");",
+                  "        pm.expect(row).to.have.property(\"count\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pole Structure Summary - by Circle + Date Range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/pole-structure-summary?circleId={{circleId}}&dateFrom=2026-01-01T00:00:00Z&dateTo=2026-12-31T23:59:59Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "pole-structure-summary"
+              ],
+              "query": [
+                {
+                  "key": "circleId",
+                  "value": "{{circleId}}"
+                },
+                {
+                  "key": "dateFrom",
+                  "value": "2026-01-01T00:00:00Z"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "2026-12-31T23:59:59Z"
+                }
+              ]
+            },
+            "description": "Same report rolled up at circle level with a survey date-range filter applied."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response is an array\", () => pm.expect(json.data).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conductor Summary - by Feeder",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/conductor-summary?feederId={{feederId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "conductor-summary"
+              ],
+              "query": [
+                {
+                  "key": "feederId",
+                  "value": "{{feederId}}"
+                }
+              ]
+            },
+            "description": "One row per conductor item_type - segment count plus total surveyed length in meters. ReportLengthItem shape: code, label, count, totalLengthMeters."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response is an array\", () => pm.expect(json.data).to.be.an(\"array\"));",
+                  "if (json.data.length > 0) {",
+                  "    pm.test(\"Row has code/label/count/totalLengthMeters\", () => {",
+                  "        const row = json.data[0];",
+                  "        pm.expect(row).to.have.property(\"code\");",
+                  "        pm.expect(row).to.have.property(\"label\");",
+                  "        pm.expect(row).to.have.property(\"count\");",
+                  "        pm.expect(row).to.have.property(\"totalLengthMeters\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transformer Capacity Summary - by Feeder",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/transformer-capacity-summary?feederId={{feederId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "transformer-capacity-summary"
+              ],
+              "query": [
+                {
+                  "key": "feederId",
+                  "value": "{{feederId}}"
+                }
+              ]
+            },
+            "description": "One row per power-transformer capacity/item_type value, scoped to the given feeder. ReportCountItem shape: code, label, count."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response is an array\", () => pm.expect(json.data).to.be.an(\"array\"));",
+                  "if (json.data.length > 0) {",
+                  "    pm.test(\"Row has code/label/count\", () => {",
+                  "        const row = json.data[0];",
+                  "        pm.expect(row).to.have.property(\"code\");",
+                  "        pm.expect(row).to.have.property(\"label\");",
+                  "        pm.expect(row).to.have.property(\"count\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Meter Summary - by Sub-Division",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/meter-summary?subDivisionId={{subDivisionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "meter-summary"
+              ],
+              "query": [
+                {
+                  "key": "subDivisionId",
+                  "value": "{{subDivisionId}}"
+                }
+              ]
+            },
+            "description": "No item_type dimension to group by - meter_detail doesn't reference item_type - so this is a flat scoped count. MeterSummaryResponse shape: { count }."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response has flat count field\", () => {",
+                  "    pm.expect(json.data).to.have.property(\"count\");",
+                  "    pm.expect(json.data.count).to.be.a(\"number\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Expect 400] No scope param supplied",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/pole-structure-summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "pole-structure-summary"
+              ],
+              "query": []
+            },
+            "description": "None of circleId/divisionId/subDivisionId/feederId supplied - should trigger MissingReportScopeException -> 400. Applies identically to all four report endpoints since they share ReportService.requireScope."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400 - missing scope\", () => pm.response.to.have.status(400));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Error indicates missing scope\", () => {",
+                  "    pm.expect(JSON.stringify(json).toLowerCase()).to.include(\"scope\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Survey Forms - Equipment Type Detail Payloads",
+      "description": "Demonstrates the four detail sub-objects on POST /api/survey-forms/sync - poleDetail (SRS \u00a78.3.3), conductorDetail (\u00a78.3.4, sent whenever S/E is End Point regardless of equipment type), transformerDetail (\u00a78.3.5), and meterDetail (\u00a78.3.6). Assumes folder 6 has already run so {{workOrderId}} and {{surveyorUserId}} are populated. Each request uses its own gpsNumberN collection variable so they don't collide with folder 6's gpsNumber1/gpsNumber2.",
+      "item": [
+        {
+          "name": "Submit Survey Form - Secondary Pole (with poleDetail)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/survey-forms/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "survey-forms",
+                "sync"
+              ]
+            },
+            "description": "structureTypeCode must resolve to an item_type in PRIMARY_STRUCTURE or SECONDARY_STRUCTURE, per which SurveyService checks based on equipmentTypeCode (Secondary Pole -> SECONDARY_STRUCTURE).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workOrderId\": \"{{workOrderId}}\",\n  \"sePoint\": \"START_POINT\",\n  \"equipmentTypeCode\": \"SECONDARY_POLE\",\n  \"gpsNumber\": \"{{gpsNumber3}}\",\n  \"submittedByUserId\": \"{{surveyorUserId}}\",\n  \"latitude\": 25.381,\n  \"longitude\": 68.3702,\n  \"remarks\": \"Secondary pole - LT side, start of service drop\",\n  \"poleDetail\": {\n    \"structureTypeCode\": \"PC_SPUN\",\n    \"poleNumber\": \"SP-014\",\n    \"heightMeters\": 8.5\n  }\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "const now = new Date();",
+                  "const dd = String(now.getDate()).padStart(2, \"0\");",
+                  "const mm = String(now.getMonth() + 1).padStart(2, \"0\");",
+                  "const yy = String(now.getFullYear()).slice(-2);",
+                  "const userNo = String(pm.collectionVariables.get(\"surveyorUserId\")).padStart(4, \"0\").slice(-4);",
+                  "const serial = \"0003\";",
+                  "pm.collectionVariables.set(\"gpsNumber3\", userNo + dd + mm + yy + serial);",
+                  ""
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Survey form synced\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Equipment type is Secondary Pole\", () => pm.expect(json.data.equipmentTypeCode).to.eql(\"SECONDARY_POLE\"));",
+                  "pm.test(\"poleDetail returned with structureTypeCode/poleNumber/heightMeters\", () => {",
+                  "    pm.expect(json.data.poleDetail).to.not.be.null;",
+                  "    pm.expect(json.data.poleDetail.structureTypeCode).to.eql(\"PC_SPUN\");",
+                  "    pm.expect(json.data.poleDetail).to.have.property(\"poleNumber\");",
+                  "    pm.expect(json.data.poleDetail).to.have.property(\"heightMeters\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Survey Form - Primary Pole End Point (with conductorDetail)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/survey-forms/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "survey-forms",
+                "sync"
+              ]
+            },
+            "description": "conductorDetail is attached whenever sePoint is END_POINT, regardless of equipmentTypeCode (\u00a78.3.4) - here paired with a Primary Pole's own poleDetail.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workOrderId\": \"{{workOrderId}}\",\n  \"sePoint\": \"END_POINT\",\n  \"equipmentTypeCode\": \"PRIMARY_POLE\",\n  \"gpsNumber\": \"{{gpsNumber4}}\",\n  \"lineLengthMeters\": 98.2,\n  \"submittedByUserId\": \"{{surveyorUserId}}\",\n  \"latitude\": 25.3822,\n  \"longitude\": 68.3711,\n  \"remarks\": \"Primary pole - end point, conductor run from previous pole\",\n  \"poleDetail\": {\n    \"structureTypeCode\": \"PC_SPUN\",\n    \"poleNumber\": \"PP-022\",\n    \"heightMeters\": 9.0\n  },\n  \"conductorDetail\": {\n    \"conductorTypeCode\": \"AAAC_DOG\"\n  }\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "const now = new Date();",
+                  "const dd = String(now.getDate()).padStart(2, \"0\");",
+                  "const mm = String(now.getMonth() + 1).padStart(2, \"0\");",
+                  "const yy = String(now.getFullYear()).slice(-2);",
+                  "const userNo = String(pm.collectionVariables.get(\"surveyorUserId\")).padStart(4, \"0\").slice(-4);",
+                  "const serial = \"0004\";",
+                  "pm.collectionVariables.set(\"gpsNumber4\", userNo + dd + mm + yy + serial);",
+                  ""
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Survey form synced\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"conductorDetail returned with conductorTypeCode/conductorTypeLabel\", () => {",
+                  "    pm.expect(json.data.conductorDetail).to.not.be.null;",
+                  "    pm.expect(json.data.conductorDetail.conductorTypeCode).to.eql(\"AAAC_DOG\");",
+                  "    pm.expect(json.data.conductorDetail).to.have.property(\"conductorTypeLabel\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Survey Form - Transformer End Point (with transformerDetail + conductorDetail)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/survey-forms/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "survey-forms",
+                "sync"
+              ]
+            },
+            "description": "capacityCode must resolve to an item_type in the TRANSFORMER_CAPACITY category (\u00a78.3.5).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workOrderId\": \"{{workOrderId}}\",\n  \"sePoint\": \"END_POINT\",\n  \"equipmentTypeCode\": \"TRANSFORMER\",\n  \"gpsNumber\": \"{{gpsNumber5}}\",\n  \"lineLengthMeters\": 42.0,\n  \"submittedByUserId\": \"{{surveyorUserId}}\",\n  \"latitude\": 25.383,\n  \"longitude\": 68.3719,\n  \"remarks\": \"Distribution transformer mounted on PP-022\",\n  \"transformerDetail\": {\n    \"capacityCode\": \"TX_25KVA\",\n    \"transformerName\": \"TX-LATIFABAD-014\",\n    \"cableSize\": \"35 sq mm\",\n    \"ctRatio\": \"100/5\"\n  },\n  \"conductorDetail\": {\n    \"conductorTypeCode\": \"AAAC_DOG\"\n  }\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "const now = new Date();",
+                  "const dd = String(now.getDate()).padStart(2, \"0\");",
+                  "const mm = String(now.getMonth() + 1).padStart(2, \"0\");",
+                  "const yy = String(now.getFullYear()).slice(-2);",
+                  "const userNo = String(pm.collectionVariables.get(\"surveyorUserId\")).padStart(4, \"0\").slice(-4);",
+                  "const serial = \"0005\";",
+                  "pm.collectionVariables.set(\"gpsNumber5\", userNo + dd + mm + yy + serial);",
+                  ""
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Survey form synced\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Equipment type is Transformer\", () => pm.expect(json.data.equipmentTypeCode).to.eql(\"TRANSFORMER\"));",
+                  "pm.test(\"transformerDetail returned with capacityCode/capacityLabel/transformerName/cableSize/ctRatio\", () => {",
+                  "    const t = json.data.transformerDetail;",
+                  "    pm.expect(t).to.not.be.null;",
+                  "    pm.expect(t.capacityCode).to.eql(\"TX_25KVA\");",
+                  "    pm.expect(t).to.have.property(\"capacityLabel\");",
+                  "    pm.expect(t).to.have.property(\"transformerName\");",
+                  "    pm.expect(t).to.have.property(\"cableSize\");",
+                  "    pm.expect(t).to.have.property(\"ctRatio\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Survey Form - Meter End Point (with meterDetail + conductorDetail)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/survey-forms/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "survey-forms",
+                "sync"
+              ]
+            },
+            "description": "meterDetail has no item_type lookup dimension (meter_detail doesn't reference item_type) - meterNumber/consumerReference are stored as-is, matching MeterDetailResponse's flat shape.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workOrderId\": \"{{workOrderId}}\",\n  \"sePoint\": \"END_POINT\",\n  \"equipmentTypeCode\": \"METER\",\n  \"gpsNumber\": \"{{gpsNumber6}}\",\n  \"lineLengthMeters\": 12.5,\n  \"submittedByUserId\": \"{{surveyorUserId}}\",\n  \"latitude\": 25.3835,\n  \"longitude\": 68.3724,\n  \"remarks\": \"Consumer meter fed from TX-LATIFABAD-014\",\n  \"meterDetail\": {\n    \"meterNumber\": \"MTR-0098231\",\n    \"consumerReference\": \"CNS-441-207\"\n  },\n  \"conductorDetail\": {\n    \"conductorTypeCode\": \"LT_ABC_16SQMM\"\n  }\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "",
+                  "const now = new Date();",
+                  "const dd = String(now.getDate()).padStart(2, \"0\");",
+                  "const mm = String(now.getMonth() + 1).padStart(2, \"0\");",
+                  "const yy = String(now.getFullYear()).slice(-2);",
+                  "const userNo = String(pm.collectionVariables.get(\"surveyorUserId\")).padStart(4, \"0\").slice(-4);",
+                  "const serial = \"0006\";",
+                  "pm.collectionVariables.set(\"gpsNumber6\", userNo + dd + mm + yy + serial);",
+                  ""
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Survey form synced\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Equipment type is Meter\", () => pm.expect(json.data.equipmentTypeCode).to.eql(\"METER\"));",
+                  "pm.test(\"meterDetail returned with meterNumber/consumerReference\", () => {",
+                  "    const m = json.data.meterDetail;",
+                  "    pm.expect(m).to.not.be.null;",
+                  "    pm.expect(m.meterNumber).to.eql(\"MTR-0098231\");",
+                  "    pm.expect(m).to.have.property(\"consumerReference\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Survey Forms for Work Order (verify all detail types present)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/survey-forms?workOrderId={{workOrderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "survey-forms"
+              ],
+              "query": [
+                {
+                  "key": "workOrderId",
+                  "value": "{{workOrderId}}"
+                }
+              ]
+            },
+            "description": "Sanity check after running all four detail-payload requests above - the work order should now have survey forms spanning pole, conductor, transformer, and meter details."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response is an array with entries\", () => {",
+                  "    pm.expect(json.data).to.be.an(\"array\");",
+                  "    pm.expect(json.data.length).to.be.greaterThan(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

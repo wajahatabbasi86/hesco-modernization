@@ -3,6 +3,7 @@ package com.lmkr.hesco.reports.repository;
 import com.lmkr.hesco.reports.api.dto.PageResponse;
 import com.lmkr.hesco.reports.api.dto.ReportCountItem;
 import com.lmkr.hesco.reports.api.dto.ReportLengthItem;
+import com.lmkr.hesco.reports.api.dto.MeterReportRow;
 
 import java.time.OffsetDateTime;
 
@@ -56,4 +57,23 @@ public interface ReportQueryRepository {
     long meterSummary(
             Long circleId, Long divisionId, Long subDivisionId,
             Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo);
+
+    // -- Feeder Assets Reports (SRS §3.15.2), feeder-row shape --
+
+    List<DeviceSummaryRow> deviceReportRaw(
+            Long circleId, Long divisionId, Long subDivisionId,
+            Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo);
+
+    List<StructureSummaryRow> structureReportRaw(
+            Long circleId, Long divisionId, Long subDivisionId,
+            Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo);
+
+    List<ConductorSummaryRow> conductorReportRaw(
+            Long circleId, Long divisionId, Long subDivisionId,
+            Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo);
+
+    PageResponse<MeterReportRow> meterReport(
+            Long circleId, Long divisionId, Long subDivisionId,
+            Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo,
+            String meterNo, int page, int size);
 }

@@ -1,5 +1,6 @@
 package com.lmkr.hesco.survey.entity;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,8 +20,9 @@ import org.hibernate.annotations.CreationTimestamp;
 
 /**
   * Meter attributes for a survey_form whose equipment type is METER
-  * (SRS §8.3.6). Kept minimal (meterNumber, consumerReference) pending
-  * a full §8.3.6 field-list review — extend this entity rather than
+  * (SRS §8.3.6). Also carries sanctionedLoad/meterMake, added for the
+  * Meter Report (SRS §3.15.2.4) — those two aren't otherwise captured
+  * on the mobile form yet; extend this entity rather than
   * widening SurveyForm once that's confirmed.
   */
 @Getter
@@ -45,6 +47,12 @@ public class MeterDetail {
 
     @Column(name = "consumer_reference", length = 50)
     private String consumerReference;
+
+    @Column(name = "sanctioned_load", precision = 10, scale = 2)
+    private BigDecimal sanctionedLoad;
+
+    @Column(name = "meter_make", length = 100)
+    private String meterMake;
 
     @CreationTimestamp
     @Column(name = "created_at")

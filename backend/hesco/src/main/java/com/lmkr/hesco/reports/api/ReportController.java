@@ -1,7 +1,12 @@
 package com.lmkr.hesco.reports.api;
 
 import com.lmkr.hesco.common.api.ApiResponse;
+import com.lmkr.hesco.reports.api.dto.FeederConductorReportRow;
+import com.lmkr.hesco.reports.api.dto.FeederDeviceReportRow;
+import com.lmkr.hesco.reports.api.dto.FeederStructureReportRow;
+import com.lmkr.hesco.reports.api.dto.MeterReportRow;
 import com.lmkr.hesco.reports.api.dto.MeterSummaryResponse;
+import com.lmkr.hesco.reports.api.dto.PageResponse;
 import com.lmkr.hesco.reports.api.dto.ReportCountItem;
 import com.lmkr.hesco.reports.api.dto.ReportLengthItem;
 import com.lmkr.hesco.reports.service.ReportService;
@@ -74,5 +79,58 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime dateTo) {
         return ApiResponse.ok(
             reportService.meterSummary(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo));
+    }
+
+    // -- Feeder Assets Reports (SRS §3.15.2), feeder-row shape --
+
+    @GetMapping("/device-report")
+    public ApiResponse<List<FeederDeviceReportRow>> deviceReport(
+            @RequestParam(required = false) Long circleId,
+            @RequestParam(required = false) Long divisionId,
+            @RequestParam(required = false) Long subDivisionId,
+            @RequestParam(required = false) Long feederId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime dateTo) {
+        return ApiResponse.ok(
+            reportService.deviceReport(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo));
+    }
+
+    @GetMapping("/structure-report")
+    public ApiResponse<List<FeederStructureReportRow>> structureReport(
+            @RequestParam(required = false) Long circleId,
+            @RequestParam(required = false) Long divisionId,
+            @RequestParam(required = false) Long subDivisionId,
+            @RequestParam(required = false) Long feederId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime dateTo) {
+        return ApiResponse.ok(
+            reportService.structureReport(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo));
+    }
+
+    @GetMapping("/conductor-report")
+    public ApiResponse<List<FeederConductorReportRow>> conductorReport(
+            @RequestParam(required = false) Long circleId,
+            @RequestParam(required = false) Long divisionId,
+            @RequestParam(required = false) Long subDivisionId,
+            @RequestParam(required = false) Long feederId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime dateTo) {
+        return ApiResponse.ok(
+            reportService.conductorReport(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo));
+    }
+
+    @GetMapping("/meter-report")
+    public ApiResponse<PageResponse<MeterReportRow>> meterReport(
+            @RequestParam(required = false) Long circleId,
+            @RequestParam(required = false) Long divisionId,
+            @RequestParam(required = false) Long subDivisionId,
+            @RequestParam(required = false) Long feederId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime dateTo,
+            @RequestParam(required = false) String meterNo,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.ok(
+            reportService.meterReport(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo, meterNo, page, size));
     }
 }
