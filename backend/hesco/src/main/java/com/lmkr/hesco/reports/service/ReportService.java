@@ -17,7 +17,10 @@ import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.lmkr.hesco.reports.repository.StructureSummaryRow;
 import lombok.AllArgsConstructor;
@@ -37,132 +40,161 @@ public class ReportService {
 
     private final ReportQueryRepository reportRepository;
 
+    // Matches the numeric KVA value out of a TRANSFORMER_CAPACITY item_type
+    // code, e.g. "KVA_100" -> 100, "KVA_1500" -> 1500. Codes that don't
+    // match this pattern contribute 0 to grandTotalKva rather than
+    // failing the whole report — see kvaValueOf() below.
+    private static final Pattern KVA_CODE_PATTERN = Pattern.compile("KVA_(\\d+)");
+
     @Transactional(readOnly = true)
     public List<ReportCountItem> poleStructureSummary(Long circleId, Long divisionId, Long subDivisionId,
-                                                        Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
+                                                      Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
         requireScope(circleId, divisionId, subDivisionId, feederId);
         return reportRepository.poleStructureSummary(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
     }
 
     @Transactional(readOnly = true)
     public List<ReportLengthItem> conductorSummary(Long circleId, Long divisionId, Long subDivisionId,
-                                                     Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
+                                                   Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
         requireScope(circleId, divisionId, subDivisionId, feederId);
         return reportRepository.conductorSummary(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
     }
 
     @Transactional(readOnly = true)
     public List<ReportCountItem> transformerCapacitySummary(Long circleId, Long divisionId, Long subDivisionId,
-                                                              Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
+                                                            Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
         requireScope(circleId, divisionId, subDivisionId, feederId);
         return reportRepository.transformerCapacitySummary(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
     }
 
     @Transactional(readOnly = true)
     public MeterSummaryResponse meterSummary(Long circleId, Long divisionId, Long subDivisionId,
-                                              Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
+                                             Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
         requireScope(circleId, divisionId, subDivisionId, feederId);
         return new MeterSummaryResponse(
-            reportRepository.meterSummary(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo));
+                reportRepository.meterSummary(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo));
     }
 
     // -- Feeder Assets Reports (SRS §3.15.2), feeder-row shape --
 
     @Transactional(readOnly = true)
     public List<FeederDeviceReportRow> deviceReport(Long circleId, Long divisionId, Long subDivisionId,
-                                                      Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
+                                                    Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
         requireScope(circleId, divisionId, subDivisionId, feederId);
         List<DeviceSummaryRow> raw =
-            reportRepository.deviceReportRaw(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
+                reportRepository.deviceReportRaw(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
 
         Map<Long, List<DeviceSummaryRow>> byFeeder = raw.stream()
-            .collect(Collectors.groupingBy(DeviceSummaryRow::feederId, LinkedHashMap::new, Collectors.toList()));
+                .collect(Collectors.groupingBy(DeviceSummaryRow::feederId, LinkedHashMap::new, Collectors.toList()));
 
         return byFeeder.values().stream().map(rows -> {
             var first = rows.get(0);
-            List<ReportCountItem> devices = rows.stream()
-                .map(r -> new ReportCountItem(r.itemCode(), r.itemLabel(), r.count()))
-                .toList();
+
+            List<ReportCountItem> dedicated = rows.stream()
+                    .filter(r -> "DEDICATED".equals(r.dutyCode()))
+                    .map(r -> new ReportCountItem(r.itemCode(), r.itemLabel(), r.count()))
+                    .toList();
+            List<ReportCountItem> generalDuty = rows.stream()
+                    .filter(r -> "GENERAL_DUTY".equals(r.dutyCode()))
+                    .map(r -> new ReportCountItem(r.itemCode(), r.itemLabel(), r.count()))
+                    .toList();
+
+            long dedicatedTotal = dedicated.stream().mapToLong(ReportCountItem::count).sum();
+            long generalDutyTotal = generalDuty.stream().mapToLong(ReportCountItem::count).sum();
+
+            long grandTotalKva = Stream.concat(dedicated.stream(), generalDuty.stream())
+                    .mapToLong(item -> kvaValueOf(item.code()) * item.count())
+                    .sum();
+
             return new FeederDeviceReportRow(
-                first.feederCode(), first.feederName(), first.substationName(),
-                devices, devices.stream().mapToLong(ReportCountItem::count).sum());
+                    first.feederCode(), first.feederName(), first.substationName(),
+                    dedicated, dedicatedTotal,
+                    generalDuty, generalDutyTotal,
+                    dedicatedTotal + generalDutyTotal,
+                    grandTotalKva);
         }).toList();
+    }
+
+    private static long kvaValueOf(String capacityItemCode) {
+        Matcher m = KVA_CODE_PATTERN.matcher(capacityItemCode);
+        return m.matches() ? Long.parseLong(m.group(1)) : 0L;
     }
 
     @Transactional(readOnly = true)
     public List<FeederStructureReportRow> structureReport(Long circleId, Long divisionId, Long subDivisionId,
-                                                            Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
+                                                          Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
         requireScope(circleId, divisionId, subDivisionId, feederId);
         List<StructureSummaryRow> raw =
-            reportRepository.structureReportRaw(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
+                reportRepository.structureReportRaw(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
 
         Map<Long, List<StructureSummaryRow>> byFeeder = raw.stream()
-            .collect(Collectors.groupingBy(StructureSummaryRow::feederId, LinkedHashMap::new, Collectors.toList()));
+                .collect(Collectors.groupingBy(StructureSummaryRow::feederId, LinkedHashMap::new, Collectors.toList()));
 
         return byFeeder.values().stream().map(rows -> {
             var first = rows.get(0);
             List<ReportCountItem> primary = rows.stream()
-                .filter(r -> r.structureGroup().equals("PRIMARY"))
-                .map(r -> new ReportCountItem(r.itemCode(), r.itemLabel(), r.count()))
-                .toList();
+                    .filter(r -> r.structureGroup().equals("PRIMARY"))
+                    .map(r -> new ReportCountItem(r.itemCode(), r.itemLabel(), r.count()))
+                    .toList();
             List<ReportCountItem> secondary = rows.stream()
-                .filter(r -> r.structureGroup().equals("SECONDARY"))
-                .map(r -> new ReportCountItem(r.itemCode(), r.itemLabel(), r.count()))
-                .toList();
+                    .filter(r -> r.structureGroup().equals("SECONDARY"))
+                    .map(r -> new ReportCountItem(r.itemCode(), r.itemLabel(), r.count()))
+                    .toList();
+            long secondaryTotal = secondary.stream().mapToLong(ReportCountItem::count).sum();
             return new FeederStructureReportRow(
-                first.feederCode(), first.feederName(), first.substationName(),
-                primary, primary.stream().mapToLong(ReportCountItem::count).sum(),
-                secondary, secondary.stream().mapToLong(ReportCountItem::count).sum());
+                    first.feederCode(), first.feederName(), first.substationName(),
+                    primary, primary.stream().mapToLong(ReportCountItem::count).sum(),
+                    secondary, secondaryTotal);
         }).toList();
     }
 
     @Transactional(readOnly = true)
     public List<FeederConductorReportRow> conductorReport(Long circleId, Long divisionId, Long subDivisionId,
-                                                            Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
+                                                          Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
         requireScope(circleId, divisionId, subDivisionId, feederId);
         List<ConductorSummaryRow> raw =
-            reportRepository.conductorReportRaw(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
+                reportRepository.conductorReportRaw(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
 
         Map<Long, List<ConductorSummaryRow>> byFeeder = raw.stream()
-            .collect(Collectors.groupingBy(ConductorSummaryRow::feederId, LinkedHashMap::new, Collectors.toList()));
+                .collect(Collectors.groupingBy(ConductorSummaryRow::feederId, LinkedHashMap::new, Collectors.toList()));
 
         BigDecimal metersPerKm = BigDecimal.valueOf(1000);
 
         return byFeeder.values().stream().map(rows -> {
             var first = rows.get(0);
             List<ReportLengthItem> ht = rows.stream()
-                .filter(r -> r.zone().equals("HT"))
-                .map(r -> new ReportLengthItem(r.itemCode(), r.itemLabel(), r.count(),
-                    r.totalLengthMeters().divide(metersPerKm, 3, java.math.RoundingMode.HALF_UP)))
-                .toList();
+                    .filter(r -> r.zone().equals("HT"))
+                    .map(r -> new ReportLengthItem(r.itemCode(), r.itemLabel(), r.count(),
+                            r.totalLengthMeters().divide(metersPerKm, 3, java.math.RoundingMode.HALF_UP)))
+                    .toList();
             List<ReportLengthItem> lt = rows.stream()
-                .filter(r -> r.zone().equals("LT"))
-                .map(r -> new ReportLengthItem(r.itemCode(), r.itemLabel(), r.count(),
-                    r.totalLengthMeters().divide(metersPerKm, 3, java.math.RoundingMode.HALF_UP)))
-                .toList();
+                    .filter(r -> r.zone().equals("LT"))
+                    .map(r -> new ReportLengthItem(r.itemCode(), r.itemLabel(), r.count(),
+                            r.totalLengthMeters().divide(metersPerKm, 3, java.math.RoundingMode.HALF_UP)))
+                    .toList();
             BigDecimal htTotal = ht.stream().map(ReportLengthItem::totalLengthMeters)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal ltTotal = lt.stream().map(ReportLengthItem::totalLengthMeters)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
             return new FeederConductorReportRow(
-                first.feederCode(), first.feederName(), first.substationName(),
-                ht, htTotal, lt, ltTotal);
+                    first.feederCode(), first.feederName(), first.substationName(),
+                    ht, htTotal, lt, ltTotal);
         }).toList();
     }
 
     @Transactional(readOnly = true)
     public PageResponse<MeterReportRow> meterReport(Long circleId, Long divisionId, Long subDivisionId,
-                                                      Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo,
-                                                      String meterNo, int page, int size) {
+                                                    Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo,
+                                                    String meterNo, int page, int size) {
         requireScope(circleId, divisionId, subDivisionId, feederId);
         return reportRepository.meterReport(
-            circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo, meterNo, page, size);
+                circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo, meterNo, page, size);
     }
 
     private void requireScope(Long circleId, Long divisionId, Long subDivisionId, Long feederId) {
         if (circleId == null && divisionId == null && subDivisionId == null && feederId == null) {
             throw new MissingReportScopeException(
-                "At least one of circleId, divisionId, subDivisionId, or feederId is required");
+                    "At least one of circleId, divisionId, subDivisionId, or feederId is required");
         }
     }
 }

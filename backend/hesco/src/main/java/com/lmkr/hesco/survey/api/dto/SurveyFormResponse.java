@@ -4,24 +4,25 @@ import com.lmkr.hesco.survey.entity.SurveyForm;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 public record SurveyFormResponse(
         Long id, Long workOrderId, String sePoint, String gpsNumber, String equipmentTypeCode,
         BigDecimal lineLengthMeters, Double latitude, Double longitude, String remarks, OffsetDateTime syncedAt,
         PoleDetailResponse poleDetail,
-        ConductorDetailResponse conductorDetail,
+        List<ConductorDetailResponse> conductorDetail,
         TransformerDetailResponse transformerDetail,
         MeterDetailResponse meterDetail
 ) {
     /** No detail sub-object populated — use the overload below when detail rows are available. */
     public static SurveyFormResponse from(SurveyForm f) {
-        return from(f, null, null, null, null);
+        return from(f, null, List.of(), null, null);
     }
 
     public static SurveyFormResponse from(
             SurveyForm f,
             PoleDetailResponse poleDetail,
-            ConductorDetailResponse conductorDetail,
+            List<ConductorDetailResponse> conductorDetail,
             TransformerDetailResponse transformerDetail,
             MeterDetailResponse meterDetail
     ) {

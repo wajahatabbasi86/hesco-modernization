@@ -14,7 +14,7 @@
   "item": [
     {
       "name": "1. Admin Bound (Circle / Division / Sub-Division)",
-      "description": "SRS \u00a73.1. Run in order - each create captures its id into a collection variable consumed by later folders.",
+      "description": "SRS §3.1. Run in order - each create captures its id into a collection variable consumed by later folders.",
       "item": [
         {
           "name": "Create Circle - Hyderabad",
@@ -246,7 +246,7 @@
     },
     {
       "name": "2. Users",
-      "description": "SRS \u00a73.2. One user per role exercised later in the Work Order lifecycle. roleId values match the V1 migration seed order exactly.",
+      "description": "SRS §3.2. One user per role exercised later in the Work Order lifecycle. roleId values match the V1 migration seed order exactly.",
       "item": [
         {
           "name": "Create User - HESCO Admin",
@@ -523,7 +523,7 @@
     },
     {
       "name": "3. Grid Station & Power Transformer",
-      "description": "SRS \u00a73.4.",
+      "description": "SRS §3.4.",
       "item": [
         {
           "name": "Create Grid Station - Latifabad",
@@ -657,7 +657,7 @@
     },
     {
       "name": "4. Feeder",
-      "description": "SRS \u00a73.3.",
+      "description": "SRS §3.3.",
       "item": [
         {
           "name": "Create Feeder - FDR-110",
@@ -790,7 +790,7 @@
     },
     {
       "name": "5. Warehouse Configuration",
-      "description": "SRS \u00a73.5.",
+      "description": "SRS §3.5.",
       "item": [
         {
           "name": "List Item Categories",
@@ -920,7 +920,7 @@
     },
     {
       "name": "6. Work Order Lifecycle (full 4-tier chain)",
-      "description": "SRS \u00a73.6, \u00a78.3. Create -> Assign -> Survey (2 forms) -> Complete -> Validate -> Submit -> Approve x2 -> Post. Run top-to-bottom; each transition depends on the work order being in the exact status the previous request left it in.",
+      "description": "SRS §3.6, §8.3. Create -> Assign -> Survey (2 forms) -> Complete -> Validate -> Submit -> Approve x2 -> Post. Run top-to-bottom; each transition depends on the work order being in the exact status the previous request left it in.",
       "item": [
         {
           "name": "Create Work Order - HT Survey on FDR-110",
@@ -1553,7 +1553,7 @@
                 "users"
               ]
             },
-            "description": "UserRoleBoundValidator should reject this: role SURVEYOR has requiresImei=true and no imei field was supplied (SRS \u00a73.2.3/\u00a78.1.1).",
+            "description": "UserRoleBoundValidator should reject this: role SURVEYOR has requiresImei=true and no imei field was supplied (SRS §3.2.3/§8.1.1).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"username\": \"surveyor.no.imei\",\n  \"password\": \"Surveyor@12345\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"NoImei\",\n  \"roleId\": 6,\n  \"subDivisionId\": \"{{subDivisionId}}\"\n}"
@@ -1639,7 +1639,7 @@
                 "transition"
               ]
             },
-            "description": "WorkOrderStateMachineService should reject this: the SUBMITTED->REJECT transition has requiresComment=true (SRS \u00a73.6.4.1 'mandatory comment'). NOTE: only run this against a work order still in SUBMITTED status - the happy-path chain above will already have moved {{workOrderId}} past SUBMITTED, so point this at a fresh work order in SUBMITTED status if reusing the same environment.",
+            "description": "WorkOrderStateMachineService should reject this: the SUBMITTED->REJECT transition has requiresComment=true (SRS §3.6.4.1 'mandatory comment'). NOTE: only run this against a work order still in SUBMITTED status - the happy-path chain above will already have moved {{workOrderId}} past SUBMITTED, so point this at a fresh work order in SUBMITTED status if reusing the same environment.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"actionCode\": \"REJECT\",\n  \"actorUserId\": \"{{approver1UserId}}\"\n}"
@@ -1751,7 +1751,7 @@
       ]
     },
     {
-      "name": "8. Reports Service (Feeder Assets Reports, SRS \u00a73.15)",
+      "name": "8. Reports Service (Feeder Assets Reports, SRS §3.15)",
       "description": "GET-only reporting endpoints under /api/reports. Every endpoint requires at least one of circleId/divisionId/subDivisionId/feederId - omitting all four returns 400 (MissingReportScopeException). dateFrom/dateTo are optional ISO-8601 OffsetDateTime filters. Run after folder 4 (Feeder) and folder 6 (Work Order Lifecycle) so {{feederId}} / {{circleId}} are populated from real survey data.",
       "item": [
         {
@@ -1986,6 +1986,227 @@
           ]
         },
         {
+          "name": "Device Report - by Feeder",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/device-report?feederId={{feederId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "device-report"
+              ],
+              "query": [
+                {
+                  "key": "feederId",
+                  "value": "{{feederId}}"
+                }
+              ]
+            },
+            "description": "Feeder-row Device Report (SRS §3.15.2.1). One row per feeder; transformer counts are split into dedicatedTransformers[] and generalDutyTransformers[] (item_type-driven under TRANSFORMER_CAPACITY, cross-joined with EQUIPMENT_USE DEDICATED/GENERAL_DUTY), each with its own subtotal, plus a per-feeder total. Capacitor Banks are not included — no capacitor capacity (KVR) item_category exists in current seed data."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response is an array\", () => pm.expect(json.data).to.be.an(\"array\"));",
+                  "if (json.data.length > 0) {",
+                  "    const row = json.data[0];",
+                  "    pm.test(\"Row has feederCode/feederName/substationName\", () => {",
+                  "        pm.expect(row).to.have.property(\"feederCode\");",
+                  "        pm.expect(row).to.have.property(\"feederName\");",
+                  "        pm.expect(row).to.have.property(\"substationName\");",
+                  "    });",
+                  "    pm.test(\"Row has dedicated/generalDuty transformer groups and total\", () => {",
+                  "        pm.expect(row).to.have.property(\"dedicatedTransformers\").that.is.an(\"array\");",
+                  "        pm.expect(row).to.have.property(\"dedicatedTotal\");",
+                  "        pm.expect(row).to.have.property(\"generalDutyTransformers\").that.is.an(\"array\");",
+                  "        pm.expect(row).to.have.property(\"generalDutyTotal\");",
+                  "        pm.expect(row).to.have.property(\"total\");",
+                  "    });",
+                  "    const sample = row.dedicatedTransformers[0] || row.generalDutyTransformers[0];",
+                  "    if (sample) {",
+                  "        pm.test(\"Transformer item has code/label/count\", () => {",
+                  "            pm.expect(sample).to.have.property(\"code\");",
+                  "            pm.expect(sample).to.have.property(\"label\");",
+                  "            pm.expect(sample).to.have.property(\"count\");",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Structure Report - by Feeder",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/structure-report?feederId={{feederId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "structure-report"
+              ],
+              "query": [
+                {
+                  "key": "feederId",
+                  "value": "{{feederId}}"
+                }
+              ]
+            },
+            "description": "Feeder-row Structure Report (SRS §3.15.2.2). One row per feeder; primaryStructures/secondaryStructures are item_type-driven lists (code/label/count) split by structure_group, each with its own total."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response is an array\", () => pm.expect(json.data).to.be.an(\"array\"));",
+                  "if (json.data.length > 0) {",
+                  "    const row = json.data[0];",
+                  "    pm.test(\"Row has primary/secondary structure lists and totals\", () => {",
+                  "        pm.expect(row).to.have.property(\"primaryStructures\").that.is.an(\"array\");",
+                  "        pm.expect(row).to.have.property(\"primaryTotal\");",
+                  "        pm.expect(row).to.have.property(\"secondaryStructures\").that.is.an(\"array\");",
+                  "        pm.expect(row).to.have.property(\"secondaryTotal\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conductor Report - by Feeder",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/conductor-report?feederId={{feederId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "conductor-report"
+              ],
+              "query": [
+                {
+                  "key": "feederId",
+                  "value": "{{feederId}}"
+                }
+              ]
+            },
+            "description": "Feeder-row Conductor Report (SRS §3.15.2.3). One row per feeder; htConductors/ltConductors are item_type-driven lists (code/label/count/totalLengthMeters in KM) split by HT/LT zone, each with its own total in KM."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response is an array\", () => pm.expect(json.data).to.be.an(\"array\"));",
+                  "if (json.data.length > 0) {",
+                  "    const row = json.data[0];",
+                  "    pm.test(\"Row has HT/LT conductor lists and totals in KM\", () => {",
+                  "        pm.expect(row).to.have.property(\"htConductors\").that.is.an(\"array\");",
+                  "        pm.expect(row).to.have.property(\"htTotalKm\");",
+                  "        pm.expect(row).to.have.property(\"ltConductors\").that.is.an(\"array\");",
+                  "        pm.expect(row).to.have.property(\"ltTotalKm\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Meter Report - by Sub-Division",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/meter-report?subDivisionId={{subDivisionId}}&page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "meter-report"
+              ],
+              "query": [
+                {
+                  "key": "subDivisionId",
+                  "value": "{{subDivisionId}}"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Row-level, paginated Meter Report (SRS §3.15.2.4). One entry per meter_detail, filterable by meterNo query param. Includes sanctionedLoad and meterMake alongside the existing meterNumber/consumer reference fields."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Response is a page with data/page/size/total\", () => {",
+                  "    pm.expect(json.data).to.have.property(\"data\").that.is.an(\"array\");",
+                  "    pm.expect(json.data).to.have.property(\"page\");",
+                  "    pm.expect(json.data).to.have.property(\"size\");",
+                  "    pm.expect(json.data).to.have.property(\"total\");",
+                  "});",
+                  "if (json.data.data.length > 0) {",
+                  "    const row = json.data.data[0];",
+                  "    pm.test(\"Row has meter report fields incl. sanctionedLoad/meterMake\", () => {",
+                  "        pm.expect(row).to.have.property(\"feederCode\");",
+                  "        pm.expect(row).to.have.property(\"subDivisionName\");",
+                  "        pm.expect(row).to.have.property(\"referenceNumber\");",
+                  "        pm.expect(row).to.have.property(\"sanctionedLoad\");",
+                  "        pm.expect(row).to.have.property(\"meterNumber\");",
+                  "        pm.expect(row).to.have.property(\"meterMake\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "[Expect 400] No scope param supplied",
           "request": {
             "method": "GET",
@@ -2025,7 +2246,7 @@
     },
     {
       "name": "9. Survey Forms - Equipment Type Detail Payloads",
-      "description": "Demonstrates the four detail sub-objects on POST /api/survey-forms/sync - poleDetail (SRS \u00a78.3.3), conductorDetail (\u00a78.3.4, sent whenever S/E is End Point regardless of equipment type), transformerDetail (\u00a78.3.5), and meterDetail (\u00a78.3.6). Assumes folder 6 has already run so {{workOrderId}} and {{surveyorUserId}} are populated. Each request uses its own gpsNumberN collection variable so they don't collide with folder 6's gpsNumber1/gpsNumber2.",
+      "description": "Demonstrates the four detail sub-objects on POST /api/survey-forms/sync - poleDetail (SRS §8.3.3), conductorDetail (§8.3.4, sent whenever S/E is End Point regardless of equipment type), transformerDetail (§8.3.5), and meterDetail (§8.3.6). Assumes folder 6 has already run so {{workOrderId}} and {{surveyorUserId}} are populated. Each request uses its own gpsNumberN collection variable so they don't collide with folder 6's gpsNumber1/gpsNumber2.",
       "item": [
         {
           "name": "Submit Survey Form - Secondary Pole (with poleDetail)",
@@ -2113,7 +2334,7 @@
                 "sync"
               ]
             },
-            "description": "conductorDetail is attached whenever sePoint is END_POINT, regardless of equipmentTypeCode (\u00a78.3.4) - here paired with a Primary Pole's own poleDetail.",
+            "description": "conductorDetail is attached whenever sePoint is END_POINT, regardless of equipmentTypeCode (§8.3.4) - here paired with a Primary Pole's own poleDetail.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"workOrderId\": \"{{workOrderId}}\",\n  \"sePoint\": \"END_POINT\",\n  \"equipmentTypeCode\": \"PRIMARY_POLE\",\n  \"gpsNumber\": \"{{gpsNumber4}}\",\n  \"lineLengthMeters\": 98.2,\n  \"submittedByUserId\": \"{{surveyorUserId}}\",\n  \"latitude\": 25.3822,\n  \"longitude\": 68.3711,\n  \"remarks\": \"Primary pole - end point, conductor run from previous pole\",\n  \"poleDetail\": {\n    \"structureTypeCode\": \"PC_SPUN\",\n    \"poleNumber\": \"PP-022\",\n    \"heightMeters\": 9.0\n  },\n  \"conductorDetail\": {\n    \"conductorTypeCode\": \"AAAC_DOG\"\n  }\n}"
@@ -2176,7 +2397,7 @@
                 "sync"
               ]
             },
-            "description": "capacityCode must resolve to an item_type in the TRANSFORMER_CAPACITY category (\u00a78.3.5).",
+            "description": "capacityCode must resolve to an item_type in the TRANSFORMER_CAPACITY category (§8.3.5).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"workOrderId\": \"{{workOrderId}}\",\n  \"sePoint\": \"END_POINT\",\n  \"equipmentTypeCode\": \"TRANSFORMER\",\n  \"gpsNumber\": \"{{gpsNumber5}}\",\n  \"lineLengthMeters\": 42.0,\n  \"submittedByUserId\": \"{{surveyorUserId}}\",\n  \"latitude\": 25.383,\n  \"longitude\": 68.3719,\n  \"remarks\": \"Distribution transformer mounted on PP-022\",\n  \"transformerDetail\": {\n    \"capacityCode\": \"TX_25KVA\",\n    \"transformerName\": \"TX-LATIFABAD-014\",\n    \"cableSize\": \"35 sq mm\",\n    \"ctRatio\": \"100/5\"\n  },\n  \"conductorDetail\": {\n    \"conductorTypeCode\": \"AAAC_DOG\"\n  }\n}"

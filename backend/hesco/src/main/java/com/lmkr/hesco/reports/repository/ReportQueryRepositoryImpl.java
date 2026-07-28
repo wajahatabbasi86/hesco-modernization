@@ -50,6 +50,35 @@ public class ReportQueryRepositoryImpl implements ReportQueryRepository {
         }
     }
 
+    /**
+     * Scope-only filter for the three zero-fill feeder-row reports below
+     * (deviceReportRaw/structureReportRaw/conductorReportRaw). These drive
+     * their FROM clause off `feeder f` directly (not off the detail table
+     * via survey_form/work_order), and dateFrom/dateTo are skipped for
+     * these reports per explicit decision — so this only applies the
+     * location filters, unlike applyFilters() above which also filters on
+     * survey_form.synced_at.
+     */
+    private void applyFeederScopeOnly(StringBuilder sql, Map<String, Object> params,
+                                      Long circleId, Long divisionId, Long subDivisionId, Long feederId) {
+        if (circleId != null) {
+            sql.append(" AND d.circle_id = :circleId");
+            params.put("circleId", circleId);
+        }
+        if (divisionId != null) {
+            sql.append(" AND sd.division_id = :divisionId");
+            params.put("divisionId", divisionId);
+        }
+        if (subDivisionId != null) {
+            sql.append(" AND f.sub_division_id = :subDivisionId");
+            params.put("subDivisionId", subDivisionId);
+        }
+        if (feederId != null) {
+            sql.append(" AND f.id = :feederId");
+            params.put("feederId", feederId);
+        }
+    }
+
     @Override
     public List<ReportCountItem> poleStructureSummary(
             Long circleId, Long divisionId, Long subDivisionId,
@@ -338,45 +367,63 @@ public class ReportQueryRepositoryImpl implements ReportQueryRepository {
 
 
     // -- Feeder Assets Reports (SRS §3.15.2), feeder-row shape --
+    //
+    // The three methods below (deviceReportRaw/structureReportRaw/
+    // conductorReportRaw) all zero-fill: every (feeder, item_type)
+    // combination is emitted even when no detail rows exist for it, via
+    // CROSS JOIN feeder x item_type + LEFT JOIN <detail table>. Feeders
+    // with no survey data at all still appear as an all-zero row. This is
+    // by explicit decision, at the cost of a per-feeder correlated
+    // subquery to scope the LEFT JOIN to that feeder's survey forms.
+    // dateFrom/dateTo filtering is intentionally skipped on these three
+    // for now — see applyFeederScopeOnly() above.
 
     @Override
     public List<DeviceSummaryRow> deviceReportRaw(
             Long circleId, Long divisionId, Long subDivisionId,
             Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
 
-        // Capacity tiers come from item_type (category TRANSFORMER_CAPACITY)
-        // instead of a hardcoded KVA list, so this stays correct if tiers
-        // are added/renamed/removed via seed data — same item_type-driven
-        // approach as structureReportRaw/conductorReportRaw. Confirm
-        // 'TRANSFORMER_CAPACITY' against actual item_category.code seed
-        // data and adjust the WHERE clause below if different.
+        // Capacity tiers: item_type under TRANSFORMER_CAPACITY (confirmed
+        // against data-item_type.csv: KVA_10...KVA_1500).
+        // Duty type: item_type under EQUIPMENT_USE (DEDICATED /
+        // GENERAL_DUTY), a second FK on transformer_detail — confirm the
+        // FK column name below (assumed td.equipment_use_id) against the
+        // actual entity/table.
+        // Capacitor banks are NOT queried here: there is no capacitor
+        // capacity (KVR) item_category in current seed data.
         StringBuilder sql = new StringBuilder("""
             SELECT f.id, f.code, f.name, gs.name,
-                   it.code, it.display_label, COUNT(td.id)
-            FROM transformer_detail td
-            JOIN item_type it ON it.id = td.capacity_id
-            JOIN item_category ic ON ic.id = it.category_id
-            JOIN survey_form sf ON sf.id = td.survey_form_id
-            JOIN work_order wo ON wo.id = sf.work_order_id
-            JOIN feeder f ON f.id = wo.feeder_id
+                   duty.code, cap.code, cap.display_label,
+                   COUNT(td.id)
+            FROM feeder f
+            CROSS JOIN item_type cap
+            JOIN item_category capCat ON capCat.id = cap.category_id AND capCat.code = 'TRANSFORMER_CAPACITY'
+            CROSS JOIN item_type duty
+            JOIN item_category dutyCat ON dutyCat.id = duty.category_id AND dutyCat.code = 'EQUIPMENT_USE'
+            LEFT JOIN transformer_detail td ON td.capacity_id = cap.id AND td.equipment_use_id = duty.id
+                AND td.survey_form_id IN (
+                    SELECT sf.id FROM survey_form sf
+                    JOIN work_order wo ON wo.id = sf.work_order_id
+                    WHERE wo.feeder_id = f.id
+                )
             LEFT JOIN grid_station gs ON gs.id = f.grid_station_id
             LEFT JOIN sub_division sd ON sd.id = f.sub_division_id
             LEFT JOIN division d ON d.id = sd.division_id
-            WHERE ic.code = 'TRANSFORMER_CAPACITY'
+            WHERE 1=1
         """);
 
         Map<String, Object> params = new HashMap<>();
-        applyFilters(sql, params, circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
+        applyFeederScopeOnly(sql, params, circleId, divisionId, subDivisionId, feederId);
 
         sql.append("""
-            GROUP BY f.id, f.code, f.name, gs.name, it.code, it.display_label, it.sort_order
-            ORDER BY f.code, it.sort_order
+            GROUP BY f.id, f.code, f.name, gs.name, duty.code, cap.code, cap.display_label, cap.sort_order
+            ORDER BY f.code, duty.code, cap.sort_order
         """);
 
         return jdbc.query(sql.toString(), params,
                 (rs, i) -> new DeviceSummaryRow(
                         rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4),
-                        rs.getString(5), rs.getString(6), rs.getLong(7)
+                        rs.getString(5), rs.getString(6), rs.getString(7), rs.getLong(8)
                 )
         );
     }
@@ -390,21 +437,26 @@ public class ReportQueryRepositoryImpl implements ReportQueryRepository {
         // javadoc on PoleDetail (PRIMARY_STRUCTURE / SECONDARY_STRUCTURE).
         StringBuilder sql = new StringBuilder("""
             SELECT f.id, f.code, f.name, gs.name,
-                   ic.code, it.code, it.display_label, COUNT(pd.id)
-            FROM pole_detail pd
-            JOIN item_type it ON it.id = pd.structure_type_id
+                   ic.code, it.code, it.display_label,
+                   COUNT(pd.id)
+            FROM feeder f
+            CROSS JOIN item_type it
             JOIN item_category ic ON ic.id = it.category_id
-            JOIN survey_form sf ON sf.id = pd.survey_form_id
-            JOIN work_order wo ON wo.id = sf.work_order_id
-            JOIN feeder f ON f.id = wo.feeder_id
+                AND ic.code IN ('PRIMARY_STRUCTURE', 'SECONDARY_STRUCTURE')
+            LEFT JOIN pole_detail pd ON pd.structure_type_id = it.id
+                AND pd.survey_form_id IN (
+                    SELECT sf.id FROM survey_form sf
+                    JOIN work_order wo ON wo.id = sf.work_order_id
+                    WHERE wo.feeder_id = f.id
+                )
             LEFT JOIN grid_station gs ON gs.id = f.grid_station_id
             LEFT JOIN sub_division sd ON sd.id = f.sub_division_id
             LEFT JOIN division d ON d.id = sd.division_id
-            WHERE ic.code IN ('PRIMARY_STRUCTURE', 'SECONDARY_STRUCTURE')
+            WHERE 1=1
         """);
 
         Map<String, Object> params = new HashMap<>();
-        applyFilters(sql, params, circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
+        applyFeederScopeOnly(sql, params, circleId, divisionId, subDivisionId, feederId);
 
         sql.append("""
             GROUP BY f.id, f.code, f.name, gs.name, ic.code, it.code, it.display_label, it.sort_order
@@ -430,21 +482,26 @@ public class ReportQueryRepositoryImpl implements ReportQueryRepository {
         StringBuilder sql = new StringBuilder("""
             SELECT f.id, f.code, f.name, gs.name,
                    ic.code, it.code, it.display_label,
-                   COUNT(cd.id), COALESCE(SUM(sf.line_length_meters), 0)
-            FROM conductor_detail cd
-            JOIN item_type it ON it.id = cd.conductor_type_id
+                   COUNT(cd.id), COALESCE(SUM(cdsf.line_length_meters), 0)
+            FROM feeder f
+            CROSS JOIN item_type it
             JOIN item_category ic ON ic.id = it.category_id
-            JOIN survey_form sf ON sf.id = cd.survey_form_id
-            JOIN work_order wo ON wo.id = sf.work_order_id
-            JOIN feeder f ON f.id = wo.feeder_id
+                AND ic.code IN ('HT_CONDUCTOR', 'LT_CONDUCTOR')
+            LEFT JOIN conductor_detail cd ON cd.conductor_type_id = it.id
+                AND cd.survey_form_id IN (
+                    SELECT sf.id FROM survey_form sf
+                    JOIN work_order wo ON wo.id = sf.work_order_id
+                    WHERE wo.feeder_id = f.id
+                )
+            LEFT JOIN survey_form cdsf ON cdsf.id = cd.survey_form_id
             LEFT JOIN grid_station gs ON gs.id = f.grid_station_id
             LEFT JOIN sub_division sd ON sd.id = f.sub_division_id
             LEFT JOIN division d ON d.id = sd.division_id
-            WHERE ic.code IN ('HT_CONDUCTOR', 'LT_CONDUCTOR')
+            WHERE 1=1
         """);
 
         Map<String, Object> params = new HashMap<>();
-        applyFilters(sql, params, circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
+        applyFeederScopeOnly(sql, params, circleId, divisionId, subDivisionId, feederId);
 
         sql.append("""
             GROUP BY f.id, f.code, f.name, gs.name, ic.code, it.code, it.display_label, it.sort_order

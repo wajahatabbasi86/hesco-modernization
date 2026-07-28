@@ -56,6 +56,35 @@ public class TransformerDetail {
     @Column(name = "ct_ratio", length = 30)
     private String ctRatio;
 
+    /** Auto-generated as 'T-' + the form's GPS number (SRS §8.3.5) — computed in SurveyService, not client-supplied. */
+    @Column(name = "equipment_number", length = 40)
+    private String equipmentNumber;
+
+    /** Snapshot summary of phases captured against this survey_form's conductor_detail rows, e.g. "R,Y,B". */
+    @Column(name = "equipment_phase", length = 10)
+    private String equipmentPhase;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "equipment_use_id")
+    private ItemType equipmentUse;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "mounting_id")
+    private ItemType mounting;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "fuses_id")
+    private ItemType fuses;
+
+    @Column(name = "asset_code", length = 50)
+    private String assetCode;
+
+    @Column(name = "consumer_name", length = 150)
+    private String consumerName;
+
+    @Column(name = "equipment_location", length = 255)
+    private String equipmentLocation;
+
     @CreationTimestamp
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
