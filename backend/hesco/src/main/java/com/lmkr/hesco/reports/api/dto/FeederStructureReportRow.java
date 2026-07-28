@@ -18,4 +18,4 @@ public record FeederStructureReportRow(
         List<ReportCountItem> primaryStructures,
         long primaryTotal,
         List<ReportCountItem> secondaryStructures,
-        long sum) {}
+        long secondaryTotal) {}

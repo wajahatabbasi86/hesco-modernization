@@ -109,10 +109,11 @@ public class ReportService {
                 .filter(r -> r.structureGroup().equals("SECONDARY"))
                 .map(r -> new ReportCountItem(r.itemCode(), r.itemLabel(), r.count()))
                 .toList();
+            long secondaryTotal = secondary.stream().mapToLong(ReportCountItem::count).sum();
             return new FeederStructureReportRow(
                 first.feederCode(), first.feederName(), first.substationName(),
                 primary, primary.stream().mapToLong(ReportCountItem::count).sum(),
-                secondary, secondary.stream().mapToLong(ReportCountItem::count).sum());
+                secondary, secondaryTotal);
         }).toList();
     }
 

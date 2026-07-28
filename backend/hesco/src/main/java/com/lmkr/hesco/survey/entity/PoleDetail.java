@@ -53,7 +53,25 @@ public class PoleDetail {
     @Column(name = "height_meters", precision = 6, scale = 2)
     private java.math.BigDecimal heightMeters;
 
+    @Column(name = "no_of_feeders")
+    private Integer noOfFeeders;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "end_type_id")
+    private ItemType endType;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pole_assembly_id")
+    private ItemType poleAssembly;
+
+    @Column(name = "pole_earthing")
+    private Boolean poleEarthing;
+
+    @Column(name = "asset_code", length = 50)
+    private String assetCode;
+
     @CreationTimestamp
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
 }
+
