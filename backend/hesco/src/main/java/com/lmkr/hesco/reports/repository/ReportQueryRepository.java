@@ -64,6 +64,10 @@ public interface ReportQueryRepository {
             Long circleId, Long divisionId, Long subDivisionId,
             Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo);
 
+    List<CapacitorSummaryRow> capacitorReportRaw(
+            Long circleId, Long divisionId, Long subDivisionId,
+            Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo);
+
     List<StructureSummaryRow> structureReportRaw(
             Long circleId, Long divisionId, Long subDivisionId,
             Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo);
