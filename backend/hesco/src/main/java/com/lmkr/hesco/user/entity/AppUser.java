@@ -12,11 +12,14 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.time.OffsetDateTime;
 
 
 @Getter
@@ -69,4 +72,21 @@ public class AppUser {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    // NULL means "legacy account, never tracked" - AuthService treats
+    // that as NOT expired (there's no baseline date to measure 30 days
+    // against), rather than either forcing every untouched legacy row
+    // through a change on first login or silently exempting them
+    // forever. It gets set the first time a legacy plaintext password is
+    // verified and rehashed, or on any deliberate change.
+    @Column(name = "password_changed_at")
+    private java.time.OffsetDateTime passwordChangedAt;
+
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword = false;
+
+    @Transient
+    private boolean passwordExpired = false;
+
+    @Transient
+    private long passwordExpiringInDays;
 }
