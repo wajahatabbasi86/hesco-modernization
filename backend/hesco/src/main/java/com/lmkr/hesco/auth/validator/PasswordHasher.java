@@ -9,20 +9,22 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
 /**
- * Hashes username+password together, per requirement. BCrypt silently
- * truncates any input over 72 bytes - simply concatenating a long
- * username with a password risks losing the tail of the password to
- * that truncation with no error raised. To avoid that, the combined
- * string is first run through SHA-256 (always a fixed 64-char hex
- * digest, well under the 72-byte limit) and BCrypt hashes THAT digest,
- * not the raw concatenation. The username is lowercased before hashing
- * so case differences in how it's typed elsewhere never produce a
- * different hash.
+ * Single source of truth for password hashing across the whole app —
+ * change-password, reset-password, and password-reuse comparison
+ * (PasswordPolicyValidator) all go through this class.
  *
- * This ties every stored hash to the username at the time of hashing -
- * AppUser.username is already treated as non-editable post-creation
- * elsewhere in this codebase (SRS §3.2.5), so that coupling holds as
- * long as that rule isn't relaxed later.
+ * Plain BCrypt(rawPassword), matching what UserService.create() already
+ * produces (BCryptPasswordEncoder.encode(rawPassword) - the same
+ * algorithm, just a different call site) and what AuthService.login()
+ * already verifies against. An earlier version of this class combined
+ * username+password via SHA-256 before BCrypt-ing, on the theory that
+ * tying the hash to the username adds something - but BCrypt already
+ * generates its own random per-hash salt, so that combination added no
+ * real security property, and it made every hash produced by this class
+ * unverifiable by login(), which never adopted it. Reverted to plain
+ * BCrypt so there is exactly one hashing scheme for passwordHash across
+ * the app, and no already-created account's password becomes
+ * unverifiable.
  */
 @Component
 public class PasswordHasher {

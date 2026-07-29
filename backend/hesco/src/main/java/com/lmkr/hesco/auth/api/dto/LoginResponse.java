@@ -15,7 +15,10 @@ public record LoginResponse(
         Long divisionId,
         Long subDivisionId,
         boolean passwordExpired,
-        long passwordExpiresInDays,   // null if not within the warning window; negative-safe not needed since expired is a separate flag
-        boolean mustChangePassword
-) {
-}
+        boolean mustChangePassword,
+        // null when passwordChangedAt has never been tracked (legacy
+        // account) - there is no baseline to count down from. Present
+        // and non-null whenever passwordExpired is true (0) or the
+        // account is within the expiry-warning window.
+        Long passwordExpiresInDays
+) {}

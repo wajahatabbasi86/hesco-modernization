@@ -8,7 +8,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,7 +27,7 @@ public class JwtService {
     private final String issuer;
 
     public JwtService(
-            @Value("${auth.jwt.secret:5fJuBaNboJfaPsWq0tCaaXHa4bnWFXbrJJhThrtIgho=}") String secret,
+            @Value("${auth.jwt.secret}") String secret,
             @Value("${auth.jwt.expiration-minutes:60}") long expirationMinutes,
             @Value("${auth.jwt.issuer:hesco}") String issuer) {
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
@@ -67,10 +66,5 @@ public class JwtService {
     public Claims parse(String token) {
         JwtParser parser = Jwts.parserBuilder().setSigningKey(signingKey).build();
         return parser.parseClaimsJws(token).getBody();
-    }
-
-    public static void main(String[] args) {
-        String key = Base64.getEncoder().encodeToString(Keys.secretKeyFor(io.jsonwebtoken.SignatureAlgorithm.HS256).getEncoded());
-        System.out.println(key);
     }
 }

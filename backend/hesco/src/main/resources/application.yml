@@ -22,6 +22,21 @@ spring:
 server:
   port: ${SERVER_PORT:8084}
 
+# auth.jwt.secret has NO source-code fallback (see JwtService) - the
+# value below is a local-dev-only default, kept here in one visible
+# place instead of buried in Java, not in source as a silent fallback.
+# Every non-local environment MUST set AUTH_JWT_SECRET to its own
+# value; this one is not a secret in any meaningful sense since it's
+# committed to the repo.
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:5fJuBaNboJfaPsWq0tCaaXHa4bnWFXbrJJhThrtIgho=}
+    expiration-minutes: ${AUTH_JWT_EXPIRATION_MINUTES:60}
+    issuer: hesco
+  password:
+    expiry-days: ${AUTH_PASSWORD_EXPIRY_DAYS:30}
+    expiry-warning-days: ${AUTH_PASSWORD_EXPIRY_WARNING_DAYS:7}
+
 logging:
   level:
     com.lmkr.hesco: INFO
