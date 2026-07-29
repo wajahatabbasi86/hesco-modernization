@@ -34,3 +34,23 @@ CREATE TABLE capacitor_detail (
     capacity_id BIGINT NOT NULL REFERENCES item_type(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+/* SCRIPTS FOR DATA CREATION
+INSERT INTO capacitor_detail (survey_form_id, capacity_id)
+SELECT sample.survey_form_id, it.id
+FROM (
+         -- Pick 5 distinct survey forms that already have transformer data,
+         -- so each one belongs to a real feeder/work_order.
+         SELECT DISTINCT survey_form_id
+         FROM transformer_detail
+         ORDER BY survey_form_id
+             LIMIT 5
+     ) AS sample
+         CROSS JOIN LATERAL (
+    -- Give each sampled survey form 1-2 capacitor readings at varying
+    -- tiers, so counts differ across feeders in the report.
+    SELECT code FROM item_type where category_id=13
+
+        ) AS tier(code)
+         JOIN item_type it ON it.code = tier.code
+         JOIN item_category ic ON ic.id = it.category_id AND ic.code = 'CAPACITOR_CAPACITY';*/
