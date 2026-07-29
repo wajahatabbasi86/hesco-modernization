@@ -429,6 +429,51 @@ public class ReportQueryRepositoryImpl implements ReportQueryRepository {
     }
 
     @Override
+    public List<CapacitorSummaryRow> capacitorReportRaw(
+            Long circleId, Long divisionId, Long subDivisionId,
+            Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {
+
+        // Same zero-fill pattern as deviceReportRaw/structureReportRaw/
+        // conductorReportRaw: CROSS JOIN feeder x capacitor item_type,
+        // LEFT JOIN capacitor_detail (correlated to that feeder's survey
+        // forms). dateFrom/dateTo skipped for now, same as the other
+        // three zero-fill reports.
+        StringBuilder sql = new StringBuilder("""
+            SELECT f.id, f.code, f.name, gs.name,
+                   cap.code, cap.display_label,
+                   COUNT(cbd.id)
+            FROM feeder f
+            CROSS JOIN item_type cap
+            JOIN item_category capCat ON capCat.id = cap.category_id AND capCat.code = 'CAPACITOR_CAPACITY'
+            LEFT JOIN capacitor_detail cbd ON cbd.capacity_id = cap.id
+                AND cbd.survey_form_id IN (
+                    SELECT sf.id FROM survey_form sf
+                    JOIN work_order wo ON wo.id = sf.work_order_id
+                    WHERE wo.feeder_id = f.id
+                )
+            LEFT JOIN grid_station gs ON gs.id = f.grid_station_id
+            LEFT JOIN sub_division sd ON sd.id = f.sub_division_id
+            LEFT JOIN division d ON d.id = sd.division_id
+            WHERE 1=1
+        """);
+
+        Map<String, Object> params = new HashMap<>();
+        applyFeederScopeOnly(sql, params, circleId, divisionId, subDivisionId, feederId);
+
+        sql.append("""
+            GROUP BY f.id, f.code, f.name, gs.name, cap.code, cap.display_label, cap.sort_order
+            ORDER BY f.code, cap.sort_order
+        """);
+
+        return jdbc.query(sql.toString(), params,
+                (rs, i) -> new CapacitorSummaryRow(
+                        rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4),
+                        rs.getString(5), rs.getString(6), rs.getLong(7)
+                )
+        );
+    }
+
+    @Override
     public List<StructureSummaryRow> structureReportRaw(
             Long circleId, Long divisionId, Long subDivisionId,
             Long feederId, OffsetDateTime dateFrom, OffsetDateTime dateTo) {

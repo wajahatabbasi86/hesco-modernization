@@ -14,12 +14,11 @@ import java.util.List;
  * stays correct if capacity tiers or duty types are added, renamed,
  * or removed via seed data, with no code change required.
  *
- * NOTE: the legacy report also has a "Capacitor Banks (KVA)" column
- * group. There is currently no item_category for capacitor capacity
- * (KVR) in seed data — TRANSFORMER_CAPACITY only has the 9 KVA
- * tiers — so that group is intentionally omitted here rather than
- * faked. Add a CAPACITOR_CAPACITY item_category (+ KVR item_types)
- * first if that column group needs to come back.
+ * Capacitor Banks (legacy's "Capacitor Banks (KVA)" column group) are
+ * now included too: capacitorBanks / capacitorTotal, backed by the new
+ * CAPACITOR_CAPACITY item_category + capacitor_detail table
+ * (V6__capacitor_detail.sql) — same item_type-driven, zero-filled
+ * approach as the transformer groups above.
  *
  * grandTotalKva is count-weighted KVA, e.g. 3 x KVA_100 + 1 x KVA_200
  * = 500 — NOT a row count. It's derived from the numeric value in
@@ -36,6 +35,8 @@ public record FeederDeviceReportRow(
         List<ReportCountItem> generalDutyTransformers,
         long generalDutyTotal,
         long total,
-        long grandTotalKva
+        long grandTotalKva,
+        List<ReportCountItem> capacitorBanks,
+        long capacitorTotal
 ) {
 }

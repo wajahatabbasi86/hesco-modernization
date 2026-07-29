@@ -9,6 +9,7 @@ import com.lmkr.hesco.reports.api.dto.PageResponse;
 import com.lmkr.hesco.reports.api.dto.ReportCountItem;
 import com.lmkr.hesco.reports.api.dto.ReportLengthItem;
 import com.lmkr.hesco.reports.exception.MissingReportScopeException;
+import com.lmkr.hesco.reports.repository.CapacitorSummaryRow;
 import com.lmkr.hesco.reports.repository.ConductorSummaryRow;
 import com.lmkr.hesco.reports.repository.DeviceSummaryRow;
 import com.lmkr.hesco.reports.repository.ReportQueryRepository;
@@ -83,7 +84,10 @@ public class ReportService {
         requireScope(circleId, divisionId, subDivisionId, feederId);
         List<DeviceSummaryRow> raw =
                 reportRepository.deviceReportRaw(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
-
+        List<CapacitorSummaryRow> capacitorRaw =
+                reportRepository.capacitorReportRaw(circleId, divisionId, subDivisionId, feederId, dateFrom, dateTo);
+        Map<Long, List<CapacitorSummaryRow>> capacitorByFeeder = capacitorRaw.stream()
+                .collect(Collectors.groupingBy(CapacitorSummaryRow::feederId, LinkedHashMap::new, Collectors.toList()));
         Map<Long, List<DeviceSummaryRow>> byFeeder = raw.stream()
                 .collect(Collectors.groupingBy(DeviceSummaryRow::feederId, LinkedHashMap::new, Collectors.toList()));
 
@@ -106,12 +110,20 @@ public class ReportService {
                     .mapToLong(item -> kvaValueOf(item.code()) * item.count())
                     .sum();
 
+            List<ReportCountItem> capacitorBanks = capacitorByFeeder
+                    .getOrDefault(first.feederId(), List.of()).stream()
+                    .map(r -> new ReportCountItem(r.itemCode(), r.itemLabel(), r.count()))
+                    .toList();
+            long capacitorTotal = capacitorBanks.stream().mapToLong(ReportCountItem::count).sum();
+
+
             return new FeederDeviceReportRow(
                     first.feederCode(), first.feederName(), first.substationName(),
                     dedicated, dedicatedTotal,
                     generalDuty, generalDutyTotal,
                     dedicatedTotal + generalDutyTotal,
-                    grandTotalKva);
+                    grandTotalKva,
+                    capacitorBanks, capacitorTotal);
         }).toList();
     }
 
