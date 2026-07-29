@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  hesco-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: hesco-backend
+
+    ports:
+      - "8084:8084"
+
+    environment:
+      # Database (External)
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_NAME: hesco_local
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+
+      # App
+      SERVER_PORT: 8084
+
+      # JWT (override in real env)
+      AUTH_JWT_SECRET: 5fJuBaNboJfaPsWq0tCaaXHa4bnWFXbrJJhThrtIgho=
+      AUTH_JWT_EXPIRATION_MINUTES: 60
+
+      # Password Policy
+      AUTH_PASSWORD_EXPIRY_DAYS: 30
+      AUTH_PASSWORD_EXPIRY_WARNING_DAYS: 7
