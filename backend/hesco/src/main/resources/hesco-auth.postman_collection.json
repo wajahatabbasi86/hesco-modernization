@@ -1,0 +1,185 @@
+{
+  "info": {
+    "name": "HESCO Auth Service",
+    "description": "auth_policy_prompt.md's 5 endpoints, against feature/auth-module-fixes. Run the SETUP request's SQL manually against your DB first (see its description) - there's no seed data for a test account in the repo.\n\nAll requests use {{baseUrl}} = http://localhost:8084 by default (matches application.yml's server.port). {{token}} and {{resetToken}} are captured automatically by test scripts on Login and Forgot Password respectively - run requests in order top to bottom the first time.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8084" },
+    { "key": "username", "value": "hesco_admin" },
+    { "key": "password", "value": "Passw0rd!123" },
+    { "key": "newPassword", "value": "NewPassw0rd!456" },
+    { "key": "token", "value": "" },
+    { "key": "resetToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. SETUP (read me - run this SQL first)",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/actuator/health", "host": ["{{baseUrl}}"], "path": ["actuator", "health"] },
+        "description": "This is not a real request to run - it's a placeholder for the one-time setup SQL, since the repo has no seed test user.\n\nRun this against your DB once (adjust circle/division/subdivision if HESCO_ADMIN's SYSTEM_WIDE bound type requires it to stay NULL - check role.assigned_bound_type before inserting):\n\n```sql\nINSERT INTO app_user (username, password_hash, first_name, last_name, is_active, role_id)\nSELECT 'hesco_admin', '$2b$12$GkaJzgkGSVoSvljtAbVUb.P1K/B5njzCsWNWTCfDOTE3YkIzdhuc.',\n       'HESCO', 'Admin', true, r.id\nFROM role r WHERE r.code = 'HESCO_ADMIN';\n```\n\nThe hash above is a real BCrypt hash of `Passw0rd!123` (this collection's default {{password}} variable) - generated with the same plain-BCrypt scheme AuthService now expects everywhere, so login will work immediately without needing the legacy-plaintext-migration code path.\n\npassword_changed_at is left NULL on purpose - that's the \"legacy/never tracked\" state, so this account won't show as password-expired on first login. Log in once, then use Change Password to set password_changed_at and start the normal 30-day clock."
+      }
+    },
+    {
+      "name": "1. Login (success)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('token present', () => pm.expect(body.data.token).to.be.a('string'));",
+              "if (body.data && body.data.token) {",
+              "    pm.collectionVariables.set('token', body.data.token);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "description": "Sets {{token}} on success, used as the Bearer token by every other request below.\n\nExpected 200 response shape:\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"token\": \"...\",\n    \"expiresAt\": \"...\",\n    \"userId\": 1,\n    \"username\": \"hesco_admin\",\n    \"firstName\": \"HESCO\",\n    \"lastName\": \"Admin\",\n    \"roleCode\": \"HESCO_ADMIN\",\n    \"boundType\": \"SYSTEM_WIDE\",\n    \"circleId\": null,\n    \"divisionId\": null,\n    \"subDivisionId\": null,\n    \"passwordExpired\": false,\n    \"mustChangePassword\": false,\n    \"passwordExpiresInDays\": null\n  },\n  \"message\": null\n}\n```\n`passwordExpiresInDays` is null here because the SETUP account has no password_changed_at yet (legacy/never-tracked state)."
+      }
+    },
+    {
+      "name": "1b. Login (wrong password - 401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('401 UNAUTHORIZED', () => pm.response.to.have.status(401));",
+              "pm.test('error shape', () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.success).to.eql(false);",
+              "    pm.expect(body.errorCode).to.eql('UNAUTHORIZED');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"definitely-wrong\"\n}"
+        },
+        "description": "Confirms InvalidCredentialsException -> 401 via the shared GlobalExceptionHandler, and that a wrong password gets the SAME message as an unknown username (no user enumeration). Also writes a FAILURE row to login_history - check via request 6 afterward."
+      }
+    },
+    {
+      "name": "2. Change Password",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/auth/change-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "change-password"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"oldPassword\": \"{{password}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}"
+        },
+        "description": "Requires a valid Bearer token (identity comes from the JWT, not the request body). On success: archives the OLD hash to password_history, sets password_changed_at (starts the 30-day clock), clears mustChangePassword, and writes a SELF_SERVICE password_change_audit row.\n\nAfter running this once, {{password}} in this collection is stale - either update the collection variable to {{newPassword}}'s value before re-running Login, or use request 2b to see the policy/reuse rejections instead."
+      }
+    },
+    {
+      "name": "2b. Change Password (rejected - reused/weak)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('400 BAD_REQUEST', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/auth/change-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "change-password"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"oldPassword\": \"{{newPassword}}\",\n  \"newPassword\": \"weak\"\n}"
+        },
+        "description": "Demonstrates PasswordPolicyViolationException -> 400 (too short, missing upper/digit/special). Change newPassword to {{newPassword}}'s current value instead to demonstrate PasswordReuseException -> 400 (new password == current password) - both return the shared ApiErrorResponse shape."
+      }
+    },
+    {
+      "name": "3. Forgot Password",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (body.data && body.data.devOnlyRawToken) {",
+              "    pm.collectionVariables.set('resetToken', body.data.devOnlyRawToken);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "forgot-password"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\"\n}"
+        },
+        "description": "Public endpoint - no Bearer token needed (a user resetting a forgotten password doesn't have one). Sets {{resetToken}} for request 4.\n\ndevOnlyRawToken is a DEV/DEMO placeholder - see ForgotPasswordResponse's javadoc. In any real deployment this must be emailed/SMS'd, not returned in the API response; the same request against an unknown username returns an identical shape with a null token, so this endpoint can't be used to enumerate valid usernames."
+      }
+    },
+    {
+      "name": "3b. Forgot Password (rate limit - run 4x fast for 429)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "forgot-password"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\"\n}"
+        },
+        "description": "Use Postman's Runner to fire this 4 times in under an hour - the 4th should come back 429 TOO_MANY_REQUESTS (RateLimitExceededException), enforcing the 3/hour cap from auth_policy_prompt.md §4."
+      }
+    },
+    {
+      "name": "4. Reset Password",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "reset-password"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"newPassword\": \"ResetPassw0rd!789\"\n}"
+        },
+        "description": "Public endpoint. Consumes {{resetToken}} from request 3 - tokens are single-use (used_at gets set) and expire after 15 minutes, so re-running this without a fresh Forgot Password call first will return 400 (InvalidResetTokenException - the same message whether the token was never valid, already used, or expired, so it can't be used to probe token existence).\n\nOn success: same applyNewPassword path as Change Password, but change_type is FORCED_RESET in password_change_audit instead of SELF_SERVICE, and no old password is required."
+      }
+    },
+    {
+      "name": "5. Login History",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/api/auth/login-history", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login-history"] },
+        "description": "Requires a valid Bearer token - returns the CALLER's own history only (identity from the JWT), most recent first, capped at 50 rows. Run request 1b (wrong password) first to see a FAILURE entry alongside the SUCCESS ones - note {{token}} has to be a currently-valid token from a successful login, so run this AFTER re-logging-in if you've since changed the password."
+      }
+    }
+  ]
+}
