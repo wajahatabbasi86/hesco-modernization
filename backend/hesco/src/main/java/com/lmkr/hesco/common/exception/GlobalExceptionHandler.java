@@ -2,6 +2,13 @@ package com.lmkr.hesco.common.exception;
 
 import com.lmkr.hesco.adminbound.exception.DependentRecordsExistException;
 import com.lmkr.hesco.adminbound.exception.InvalidCodeHierarchyException;
+import com.lmkr.hesco.auth.exception.InactiveAccountException;
+import com.lmkr.hesco.auth.exception.InvalidCredentialsException;
+import com.lmkr.hesco.auth.exception.InvalidResetTokenException;
+import com.lmkr.hesco.auth.exception.MobileLoginNotAllowedException;
+import com.lmkr.hesco.auth.exception.PasswordPolicyViolationException;
+import com.lmkr.hesco.auth.exception.PasswordReuseException;
+import com.lmkr.hesco.auth.exception.RateLimitExceededException;
 import com.lmkr.hesco.common.api.ApiErrorResponse;
 import com.lmkr.hesco.reports.exception.MissingReportScopeException;
 import com.lmkr.hesco.survey.exception.DuplicateGpsNumberException;
@@ -66,6 +73,36 @@ public class GlobalExceptionHandler {
         return buildError(ex.getMessage(), "BAD_REQUEST", ex, request);
     }
 
+    @ExceptionHandler(PasswordPolicyViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiErrorResponse handlePasswordPolicyViolation(PasswordPolicyViolationException ex,
+                                                            HttpServletRequest request) {
+        return buildError(ex.getMessage(), "BAD_REQUEST", ex, request);
+    }
+
+    @ExceptionHandler(PasswordReuseException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiErrorResponse handlePasswordReuse(PasswordReuseException ex, HttpServletRequest request) {
+        return buildError(ex.getMessage(), "BAD_REQUEST", ex, request);
+    }
+
+    @ExceptionHandler(InvalidResetTokenException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiErrorResponse handleInvalidResetToken(InvalidResetTokenException ex, HttpServletRequest request) {
+        // 400, not 404 - a distinct "not found" would let a caller probe
+        // which tokens once existed. Same reasoning as InvalidCredentials
+        // covering both "unknown user" and "wrong password" below.
+        return buildError(ex.getMessage(), "BAD_REQUEST", ex, request);
+    }
+
+    // ================= 401 UNAUTHORIZED — authentication failed =================
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiErrorResponse handleInvalidCredentials(InvalidCredentialsException ex, HttpServletRequest request) {
+        return buildError(ex.getMessage(), "UNAUTHORIZED", ex, request);
+    }
+
     // ================= 403 FORBIDDEN — actor not permitted to perform the action =================
 
     @ExceptionHandler(CreatorScopeViolationException.class)
@@ -73,6 +110,27 @@ public class GlobalExceptionHandler {
     public ApiErrorResponse handleCreatorScopeViolation(CreatorScopeViolationException ex,
                                                           HttpServletRequest request) {
         return buildError(ex.getMessage(), "FORBIDDEN", ex, request);
+    }
+
+    @ExceptionHandler(InactiveAccountException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiErrorResponse handleInactiveAccount(InactiveAccountException ex, HttpServletRequest request) {
+        return buildError(ex.getMessage(), "FORBIDDEN", ex, request);
+    }
+
+    @ExceptionHandler(MobileLoginNotAllowedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiErrorResponse handleMobileLoginNotAllowed(MobileLoginNotAllowedException ex,
+                                                          HttpServletRequest request) {
+        return buildError(ex.getMessage(), "FORBIDDEN", ex, request);
+    }
+
+    // ================= 429 TOO_MANY_REQUESTS =================
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public ApiErrorResponse handleRateLimitExceeded(RateLimitExceededException ex, HttpServletRequest request) {
+        return buildError(ex.getMessage(), "TOO_MANY_REQUESTS", ex, request);
     }
 
     // ================= 404 NOT_FOUND =================
