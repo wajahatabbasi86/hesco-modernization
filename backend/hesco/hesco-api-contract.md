@@ -1,749 +1,239 @@
-# API Contract
+# HESCO Backend — API Contract
 
-Base path: `/api`
-All endpoints return the same envelope on success and the same error
-shape on failure. Module-agnostic — every module's controller follows
-this exact pattern.
+Reflects the actual code in `backend/hesco/src/main/java/com/lmkr/hesco`
+as of this pass (all 9 modules: adminbound, user, auth, feeder,
+gridstation, survey, workorder, warehouse, reports).
 
-## Response envelope
+## Response Envelope
 
-Every endpoint returns `ApiResponse<T>`:
+**Success** — `ApiResponse<T>`:
+```json
+{ "success": true, "message": "...", "data": { } }
+```
 
+**Error** — `ApiErrorResponse` (thrown by `GlobalExceptionHandler`):
 ```json
 {
-  "success": true,
-  "data": { },
-  "message": "Optional human-readable message, may be null"
+  "success": false,
+  "message": "human-readable reason",
+  "errorCode": "BAD_REQUEST | VALIDATION_ERROR | UNAUTHORIZED | FORBIDDEN | NOT_FOUND | CONFLICT | TOO_MANY_REQUESTS | INTERNAL_ERROR",
+  "timestamp": "2026-07-29T12:00:00",
+  "path": "/api/..."
 }
 ```
 
-## Error shape
+## Global Error Codes (all endpoints)
 
-Every non-2xx response returns `ApiError`, produced centrally by the
-global exception handler — no controller builds its own error body.
-
-```json
-{
-  "error": "BAD_REQUEST",
-  "message": "Human-readable reason",
-  "timestamp": "2026-07-26T07:30:00Z"
-}
-```
-
-| HTTP status | `error` | Thrown when |
+| HTTP | errorCode | Trigger |
 |---|---|---|
-| 400 | `BAD_REQUEST` | A business-rule validator rejects the input (invalid code hierarchy, role/bound mismatch, invalid equipment sequence, missing rejection comment) |
-| 400 | `VALIDATION_ERROR` | A `@Valid` request DTO fails field-level validation (`@NotBlank`, `@NotNull`, `@Pattern`, etc.) |
-| 403 | `FORBIDDEN` | The actor is not permitted to perform the action (e.g. creator/feeder scope mismatch) |
-| 404 | `NOT_FOUND` | A referenced entity (path variable or a foreign-key-style ID in the request body) does not exist |
-| 409 | `CONFLICT` | The request conflicts with current state (dependent records exist, duplicate identifier, illegal state transition) |
-| 500 | `INTERNAL_ERROR` | Unhandled/unexpected error |
+| 400 | `VALIDATION_ERROR` | `@Valid` field-level failure (`MethodArgumentNotValidException`) — every endpoint below with a request body |
+| 400 | `BAD_REQUEST` | Business-rule rejection (see per-exception table) |
+| 401 | `UNAUTHORIZED` | Bad credentials |
+| 403 | `FORBIDDEN` | Actor not permitted / inactive account |
+| 404 | `NOT_FOUND` | Entity does not exist (`EntityNotFoundException`) |
+| 409 | `CONFLICT` | Conflicts with current state (dependent records, duplicate, illegal transition) |
+| 429 | `TOO_MANY_REQUESTS` | Rate limit exceeded (login) |
+| 500 | `INTERNAL_ERROR` | Unhandled exception (fallback only) |
 
-Every module maps its own exceptions into this same table — no module
-introduces a new status code or a new error shape.
-
-## Authentication
-
-Not yet implemented. No endpoint currently requires a token. Any field
-named `*UserId` (e.g. `performedByUserId`, `actorUserId`,
-`createdByUserId`, `submittedByUserId`) is a placeholder the caller
-supplies directly; once an auth module exists, these are expected to
-be replaced by the identity carried in the caller's session/token
-rather than passed in the request body.
+| Exception | HTTP | errorCode |
+|---|---|---|
+| `InvalidCodeHierarchyException` | 400 | BAD_REQUEST |
+| `RoleBoundMismatchException` | 400 | BAD_REQUEST |
+| `InvalidEquipmentSequenceException` | 400 | BAD_REQUEST |
+| `InvalidSurveyDetailException` | 400 | BAD_REQUEST |
+| `MissingRejectionCommentException` | 400 | BAD_REQUEST |
+| `MissingReportScopeException` | 400 | BAD_REQUEST |
+| `PasswordPolicyViolationException` | 400 | BAD_REQUEST |
+| `PasswordReuseException` | 400 | BAD_REQUEST |
+| `InvalidResetTokenException` | 400 | BAD_REQUEST (deliberately not 404 — avoids token enumeration) |
+| `InvalidCredentialsException` | 401 | UNAUTHORIZED (covers both unknown user and wrong password — avoids user enumeration) |
+| `CreatorScopeViolationException` | 403 | FORBIDDEN |
+| `InactiveAccountException` | 403 | FORBIDDEN |
+| `MobileLoginNotAllowedException` | 403 | FORBIDDEN |
+| `RateLimitExceededException` | 429 | TOO_MANY_REQUESTS |
+| `EntityNotFoundException` | 404 | NOT_FOUND |
+| `DependentRecordsExistException` | 409 | CONFLICT |
+| `DuplicateGpsNumberException` | 409 | CONFLICT |
+| `InvalidWorkOrderTransitionException` | 409 | CONFLICT |
 
 ---
 
-## Module: Admin Bound
+## 1. Admin Bound — Circles
 
-Hierarchical organizational unit management: three coded levels, each
-nested inside its parent, enforced by a code-prefix rule.
+Base: `/api/admin-bound/circles`
 
-### List units (level 1 — top of hierarchy)
+| Method | Path | Success | Failure |
+|---|---|---|---|
+| GET | `/` | 200, `List<CircleResponse>` (empty list if none) | — |
+| GET | `/{id}` | 200, `CircleResponse` | 404 NOT_FOUND if id doesn't exist |
+| POST | `/` | 200, created `CircleResponse`, message "Circle created" | 400 VALIDATION_ERROR (missing/blank `code`/`name`); 400 BAD_REQUEST via `InvalidCodeHierarchyException` if code format/hierarchy invalid |
+| PUT | `/{id}` | 200, updated `CircleResponse`, message "Circle updated" | 404 NOT_FOUND if id doesn't exist; 400 VALIDATION_ERROR; 400 BAD_REQUEST invalid hierarchy |
+| DELETE | `/{id}` | 200, `data: null`, message "Circle deleted" | 404 NOT_FOUND; 409 CONFLICT via `DependentRecordsExistException` if Divisions still reference this Circle |
 
-`GET /api/admin-bound/circles`
+## 2. Admin Bound — Divisions
 
-**Response** `data`: array of
+Base: `/api/admin-bound/divisions`
 
-| Field | Type | Notes |
-|---|---|---|
-| id | number | |
-| code | string | 3-digit unique code |
-| name | string | |
-| active | boolean | |
+| Method | Path | Success | Failure |
+|---|---|---|---|
+| GET | `/?circleId=` | 200, `List<DivisionResponse>` (optionally filtered by `circleId`) | — |
+| GET | `/{id}` | 200, `DivisionResponse` | 404 NOT_FOUND |
+| POST | `/` | 200, created `DivisionResponse`, "Division created" | 400 VALIDATION_ERROR; 400 BAD_REQUEST invalid code hierarchy; 404 NOT_FOUND if `circleId` doesn't exist |
+| PUT | `/{id}` | 200, updated `DivisionResponse`, "Division updated" | 404 NOT_FOUND; 400 VALIDATION_ERROR / BAD_REQUEST |
+| DELETE | `/{id}` | 200, "Division deleted" | 404 NOT_FOUND; 409 CONFLICT if Sub-Divisions still reference it |
 
-### Get one (level 1)
+## 3. Admin Bound — Sub-Divisions
 
-`GET /api/admin-bound/circles/{id}`
+Base: `/api/admin-bound/sub-divisions`
 
-**Response** `data`: object, same shape as above. `404` if not found.
+| Method | Path | Success | Failure |
+|---|---|---|---|
+| GET | `/?divisionId=` | 200, `List<SubDivisionResponse>` | — |
+| GET | `/{id}` | 200, `SubDivisionResponse` | 404 NOT_FOUND |
+| POST | `/` | 200, created `SubDivisionResponse`, "Sub-Division created" | 400 VALIDATION_ERROR; 400 BAD_REQUEST invalid code hierarchy; 404 NOT_FOUND if `divisionId` doesn't exist |
+| PUT | `/{id}` | 200, updated, "Sub-Division updated" | 404 NOT_FOUND; 400 VALIDATION_ERROR / BAD_REQUEST |
+| DELETE | `/{id}` | 200, "Sub-Division deleted" | 404 NOT_FOUND; 409 CONFLICT if Feeders/Users still reference it |
 
-### Create (level 1)
+## 4. Users
 
-`POST /api/admin-bound/circles`
+Base: `/api/users`
 
-**Request body**
+| Method | Path | Success | Failure |
+|---|---|---|---|
+| GET | `/` | 200, `List<AppUserResponse>` | — |
+| GET | `/{id}` | 200, `AppUserResponse` | 404 NOT_FOUND |
+| POST | `/` | 200, created `AppUserResponse`, "User created" | 400 VALIDATION_ERROR (missing required fields); 400 BAD_REQUEST via `RoleBoundMismatchException` if the role's expected bound type (Circle/Division/Sub-Division/none) doesn't match the assigned bound |
+| PUT | `/{id}` | 200, updated `AppUserResponse`, "User updated" | 404 NOT_FOUND; 400 VALIDATION_ERROR / `RoleBoundMismatchException` |
 
-| Field | Type | Constraints |
-|---|---|---|
-| code | string | required, exactly 3 digits |
-| name | string | required |
+> Note: password is not set/changed through this endpoint — see Auth
+> module. `actorUserId`/`createdByUserId` are still plain request
+> fields (JWT-claim wiring is a roadmap item).
 
-**Response** `data`: the created unit (same shape as List). `message`: `"Circle created"`.
+## 5. Feeders
 
-### Update (level 1)
+Base: `/api/feeders`
 
-`PUT /api/admin-bound/circles/{id}`
+| Method | Path | Success | Failure |
+|---|---|---|---|
+| GET | `/` | 200, `List<FeederResponse>` | — |
+| GET | `/{id}` | 200, `FeederResponse` | 404 NOT_FOUND |
+| POST | `/` | 200, created `FeederResponse`, "Feeder created" | 400 VALIDATION_ERROR; 404 NOT_FOUND if `gridStationId` doesn't exist |
+| POST | `/{id}/assign` | 200, `FeederResponse` with new Sub-Division, "Feeder assigned"; also writes a `FeederAssignmentLog` row in the same transaction | 404 NOT_FOUND (feeder or `subDivisionId`); 400 VALIDATION_ERROR |
+| POST | `/{id}/unassign` | 200, `FeederResponse` with assignment cleared, "Feeder unassigned"; logs the unassignment | 404 NOT_FOUND; 400 VALIDATION_ERROR |
 
-**Request body**: same as Create.
-**Response**: updated unit. `message`: `"Circle updated"`. `404` if not found.
+## 6. Grid Stations
 
-### Delete (level 1)
+Base: `/api/grid-stations`
 
-`DELETE /api/admin-bound/circles/{id}`
+| Method | Path | Success | Failure |
+|---|---|---|---|
+| GET | `/` | 200, `List<GridStationResponse>` | — |
+| GET | `/{id}` | 200, `GridStationResponse` | 404 NOT_FOUND |
+| POST | `/` | 200, created, "Grid Station created" | 400 VALIDATION_ERROR |
+| PUT | `/{id}` | 200, updated, "Grid Station updated" | 404 NOT_FOUND; 400 VALIDATION_ERROR |
+| DELETE | `/{id}` | 200, "Grid Station deleted" | 404 NOT_FOUND; 409 CONFLICT if Feeders/Power Transformers still reference it |
 
-**Response** `data`: `null`. `message`: `"Circle deleted"`.
-**409** if any dependent record exists at any level below this unit — the
-`message` in the error body names exactly which dependent counts are
-non-zero.
+## 7. Power Transformers
+
+Base: `/api/power-transformers`
+
+| Method | Path | Success | Failure |
+|---|---|---|---|
+| GET | `/?gridStationId=` | 200, `List<PowerTransformerResponse>` | — |
+| POST | `/` | 200, created, "Power Transformer created" | 400 VALIDATION_ERROR; 404 NOT_FOUND if `gridStationId` doesn't exist |
+| DELETE | `/{id}` | 200, "Power Transformer deleted" | 404 NOT_FOUND; 409 CONFLICT if referenced elsewhere |
+
+## 8. Survey Forms
+
+Base: `/api/survey-forms`
+
+| Method | Path | Success | Failure |
+|---|---|---|---|
+| GET | `/?workOrderId=` (required) | 200, `List<SurveyFormResponse>` (includes matching detail sub-object) | 400 VALIDATION_ERROR if `workOrderId` missing |
+| POST | `/sync` | 200, `SurveyFormResponse` incl. saved detail row, "Survey form synced" | 400 VALIDATION_ERROR; 400 BAD_REQUEST via `InvalidEquipmentSequenceException` (equipment sequence rule violated); 400 BAD_REQUEST via `InvalidSurveyDetailException` (wrong/missing detail object for the form's `equipmentTypeCode`, or `sePoint=END_POINT` missing `conductorDetail`); 409 CONFLICT via `DuplicateGpsNumberException` (GPS number already used); 404 NOT_FOUND if `workOrderId` doesn't exist |
+
+## 9. Work Orders
+
+Base: `/api/work-orders`
+
+| Method | Path | Success | Failure |
+|---|---|---|---|
+| GET | `/` | 200, `List<WorkOrderResponse>` | — |
+| GET | `/{id}` | 200, `WorkOrderResponse` | 404 NOT_FOUND |
+| POST | `/` | 200, created in `CREATED` status, no assignee, "Work Order created" | 400 VALIDATION_ERROR |
+| POST | `/{id}/assign` | 200, `WorkOrderResponse` (status `ASSIGNED`), "Work Order assigned" — drives `CREATED -> ASSIGN -> ASSIGNED` via the state machine | 404 NOT_FOUND; 409 CONFLICT via `InvalidWorkOrderTransitionException` if not currently in `CREATED`; 400 VALIDATION_ERROR |
+| POST | `/{id}/transition` | 200, `WorkOrderResponse` with new status, "Work Order transitioned"; writes a `WorkOrderTransitionLog` row | 404 NOT_FOUND; 409 CONFLICT via `InvalidWorkOrderTransitionException` (illegal status change for current state); 400 BAD_REQUEST via `MissingRejectionCommentException` (rejecting without a comment); 403 FORBIDDEN via `CreatorScopeViolationException` (actor not the WO's creator/assignee where required); 400 VALIDATION_ERROR |
+
+## 10. Warehouse — Item Categories
+
+Base: `/api/warehouse/categories`
+
+| Method | Path | Success | Failure |
+|---|---|---|---|
+| GET | `/` | 200, `List<ItemCategoryResponse>` | — |
+| GET | `/{id}` | 200, `ItemCategoryResponse` | 404 NOT_FOUND |
+| POST | `/` | 200, created, "Item Category created" | 400 VALIDATION_ERROR |
+
+## 11. Warehouse — Item Types
+
+Base: `/api/warehouse/item-types`
+
+| Method | Path | Success | Failure |
+|---|---|---|---|
+| GET | `/?categoryId=` (required) | 200, `List<ItemTypeResponse>` | 400 VALIDATION_ERROR if `categoryId` missing; 404 NOT_FOUND if category doesn't exist |
+| GET | `/{id}` | 200, `ItemTypeResponse` | 404 NOT_FOUND |
+| POST | `/` | 200, created, "Item Type created" | 400 VALIDATION_ERROR; 404 NOT_FOUND if `categoryId` doesn't exist |
+| PUT | `/{id}` | 200, updated, "Item Type updated" | 404 NOT_FOUND; 400 VALIDATION_ERROR |
+
+## 12. Reports
+
+Base: `/api/reports`. **All 9 endpoints require at least one of**
+`circleId` / `divisionId` / `subDivisionId` / `feederId` — otherwise
+400 BAD_REQUEST via `MissingReportScopeException`. `dateFrom`/`dateTo`
+(ISO `OffsetDateTime`) are optional filters on `survey_form.synced_at`,
+except on `device-report`/`structure-report`/`conductor-report` where
+date filtering is currently **not applied** (known gap — see README).
+
+| Method | Path | Success | Failure |
+|---|---|---|---|
+| GET | `/pole-structure-summary` | 200, `List<ReportCountItem>` | 400 BAD_REQUEST (no scope param) |
+| GET | `/conductor-summary` | 200, `List<ReportLengthItem>` | 400 BAD_REQUEST (no scope param) |
+| GET | `/transformer-capacity-summary` | 200, `List<ReportCountItem>` | 400 BAD_REQUEST (no scope param) |
+| GET | `/meter-summary` | 200, `MeterSummaryResponse` | 400 BAD_REQUEST (no scope param) |
+| GET | `/device-report` | 200, `List<FeederDeviceReportRow>` — zero-filled per feeder × item_type, split into `dedicatedTransformers[]`/`generalDutyTransformers[]` with subtotals + `total` | 400 BAD_REQUEST (no scope param) |
+| GET | `/structure-report` | 200, `List<FeederStructureReportRow>` — zero-filled per feeder × item_type | 400 BAD_REQUEST (no scope param) |
+| GET | `/conductor-report` | 200, `List<FeederConductorReportRow>` — zero-filled per feeder × item_type, lengths not counts | 400 BAD_REQUEST (no scope param) |
+| GET | `/meter-report?meterNo=&page=&size=` | 200, `PageResponse<MeterReportRow>` (default `page=0`, `size=20`) | 400 BAD_REQUEST (no scope param); 400 VALIDATION_ERROR on malformed `page`/`size`/date |
+
+## 13. Auth
+
+Base: `/api/auth`. `change-password` and `login-history` act on the
+**caller's own account** — identity comes from the JWT
+(`Authentication.getName()`), never a request-body user id.
+
+| Method | Path | Success | Failure |
+|---|---|---|---|
+| POST | `/login` | 200, `LoginResponse` (JWT + expiry); records a successful `LoginHistory` row (IP from `X-Forwarded-For` or socket, `User-Agent`) | 400 VALIDATION_ERROR (missing username/password); 401 UNAUTHORIZED via `InvalidCredentialsException` (unknown user OR wrong password — same message for both, by design); 403 FORBIDDEN via `InactiveAccountException` (account disabled); 403 FORBIDDEN via `MobileLoginNotAllowedException` (role not permitted to log in from mobile); 429 TOO_MANY_REQUESTS via `RateLimitExceededException` (too many failed attempts) |
+| POST | `/change-password` | 200, `data: null`, "Password changed"; writes `PasswordChangeAudit` + `PasswordHistory` | 401 UNAUTHORIZED (no/invalid JWT — filtered before controller); 400 VALIDATION_ERROR; 400 BAD_REQUEST via `PasswordPolicyViolationException` (new password fails policy) or `PasswordReuseException` (matches a recent password); 401 UNAUTHORIZED via `InvalidCredentialsException` if `oldPassword` is wrong |
+| POST | `/forgot-password` | 200, `ForgotPasswordResponse` (always returns success-shaped response regardless of whether the username exists, to avoid enumeration); issues a `PasswordResetToken` when the user does exist | 400 VALIDATION_ERROR (missing username) |
+| POST | `/reset-password` | 200, `data: null`, "Password reset" | 400 VALIDATION_ERROR; 400 BAD_REQUEST via `InvalidResetTokenException` (token invalid/expired/already used — deliberately 400 not 404); 400 BAD_REQUEST via `PasswordPolicyViolationException`/`PasswordReuseException` |
+| GET | `/login-history` | 200, `List<LoginHistoryEntryResponse>` for the caller | 401 UNAUTHORIZED (no/invalid JWT) |
 
 ---
 
-### List units (level 2 — nested inside level 1)
-
-`GET /api/admin-bound/divisions?circleId={id}`
-
-`circleId` is optional; omitted returns all level-2 units.
-
-**Response** `data`: array of
-
-| Field | Type | Notes |
-|---|---|---|
-| id | number | |
-| circleId | number | parent unit id |
-| circleCode | string | parent unit code |
-| code | string | 4-digit unique code, first 3 digits must equal the parent's code |
-| name | string | |
-| active | boolean | |
-
-### Get one (level 2)
-
-`GET /api/admin-bound/divisions/{id}` — same response shape. `404` if not found.
-
-### Create (level 2)
-
-`POST /api/admin-bound/divisions`
-
-**Request body**
-
-| Field | Type | Constraints |
-|---|---|---|
-| circleId | number | required, must reference an existing level-1 unit |
-| code | string | required, exactly 4 digits |
-| name | string | required |
-
-**Response**: created unit. `message`: `"Division created"`.
-**400** if the code's first 3 digits don't match the parent's code.
-**404** if `circleId` doesn't resolve.
-
-### Delete (level 2)
-
-`DELETE /api/admin-bound/divisions/{id}`
-
-Same semantics as level-1 delete: `409` with a named-dependent message
-if any level-3 units or other dependents exist underneath it.
-
----
-
-### List units (level 3 — nested inside level 2)
-
-`GET /api/admin-bound/sub-divisions?divisionId={id}`
-
-`divisionId` is optional; omitted returns all level-3 units.
-
-**Response** `data`: array of
-
-| Field | Type | Notes |
-|---|---|---|
-| id | number | |
-| divisionId | number | parent unit id |
-| divisionCode | string | parent unit code |
-| code | string | 5-digit unique code, first 4 digits must equal the parent's code |
-| name | string | |
-| active | boolean | |
-
-### Get one (level 3)
-
-`GET /api/admin-bound/sub-divisions/{id}` — same response shape. `404` if not found.
-
-### Create (level 3)
-
-`POST /api/admin-bound/sub-divisions`
-
-**Request body**
-
-| Field | Type | Constraints |
-|---|---|---|
-| divisionId | number | required, must reference an existing level-2 unit |
-| code | string | required, exactly 5 digits |
-| name | string | required |
-
-**Response**: created unit. `message`: `"Sub-Division created"`.
-**400** if the code's first 4 digits don't match the parent's code.
-**404** if `divisionId` doesn't resolve.
-
-### Delete (level 3)
-
-`DELETE /api/admin-bound/sub-divisions/{id}`
-
-`409` with a named-dependent message if any records (users, assets,
-work items) are still assigned to this unit.
-
----
-
-## Module: User
-
-### List
-
-`GET /api/users`
-
-**Response** `data`: array of
-
-| Field | Type | Notes |
-|---|---|---|
-| id | number | |
-| username | string | |
-| firstName | string | |
-| lastName | string | |
-| contactNumber | string \| null | |
-| roleCode | string | |
-| roleDisplayName | string | |
-| circleId | number \| null | populated only if the role's bound type is circle-level |
-| divisionId | number \| null | populated only if the role's bound type is division-level |
-| subDivisionId | number \| null | populated only if the role's bound type is sub-division-level |
-| imei | string \| null | required by certain roles, see below |
-| active | boolean | |
-
-### Get one
-
-`GET /api/users/{id}` — same shape. `404` if not found.
-
-### Create
-
-`POST /api/users`
-
-**Request body**
-
-| Field | Type | Constraints |
-|---|---|---|
-| username | string | required |
-| password | string | required, hashed server-side before storage |
-| firstName | string | required |
-| lastName | string | required |
-| contactNumber | string | optional |
-| roleId | number | required, must reference an existing role |
-| circleId | number | required only if the role's bound type is circle-level; must otherwise be omitted |
-| divisionId | number | required only if the role's bound type is division-level; must otherwise be omitted |
-| subDivisionId | number | required only if the role's bound type is sub-division-level; must otherwise be omitted |
-| imei | string | required for roles flagged as mobile-primary; ignored otherwise |
-
-**Response**: created user. `message`: `"User created"`.
-**400** if exactly one matching bound field isn't set for the role's
-bound type, if a bound field is set for a role that doesn't accept one,
-or if IMEI is missing for a role that requires it.
-**404** if `roleId` or a referenced bound id doesn't resolve.
-
-### Update
-
-`PUT /api/users/{id}`
-
-**Request body**: same as Create, minus `username`/`password` semantics
-being create-only in intent (the current implementation accepts the
-same body shape; username/password fields are not re-validated for
-uniqueness on update).
-**Response**: updated user. `message`: `"User updated"`.
-Same 400/404 conditions as Create.
-
----
-
-## Module: Feeder
-
-### List
-
-`GET /api/feeders`
-
-**Response** `data`: array of
-
-| Field | Type | Notes |
-|---|---|---|
-| id | number | |
-| code | string | |
-| name | string | |
-| gridStationId | number \| null | |
-| gridStationCode | string \| null | |
-| subDivisionId | number \| null | null when unassigned |
-| subDivisionCode | string \| null | null when unassigned |
-| active | boolean | |
-
-### Get one
-
-`GET /api/feeders/{id}` — same shape. `404` if not found.
-
-### Create
-
-`POST /api/feeders`
-
-**Request body**
-
-| Field | Type | Constraints |
-|---|---|---|
-| code | string | required |
-| name | string | required |
-| gridStationId | number | optional |
-
-**Response**: created feeder (unassigned by default). `message`: `"Feeder created"`.
-**404** if `gridStationId` is supplied but doesn't resolve.
-
-### Assign
-
-`POST /api/feeders/{id}/assign`
-
-**Request body**
-
-| Field | Type | Constraints |
-|---|---|---|
-| subDivisionId | number | required, must reference an existing unit |
-| performedByUserId | number | required, must reference an existing user |
-
-**Response**: the feeder with its updated assignment. `message`: `"Feeder assigned"`.
-Writes an audit-log entry in the same transaction as the assignment.
-**404** if the feeder, the unit, or the user doesn't resolve.
-
-### Unassign
-
-`POST /api/feeders/{id}/unassign`
-
-**Request body**
-
-| Field | Type | Constraints |
-|---|---|---|
-| performedByUserId | number | required, must reference an existing user |
-
-**Response**: the feeder, now unassigned. `message`: `"Feeder unassigned"`.
-Writes an audit-log entry in the same transaction as the unassignment.
-**404** if the feeder or the user doesn't resolve.
-
----
-
-## Module: Grid Station
-
-### List
-
-`GET /api/grid-stations`
-
-**Response** `data`: array of
-
-| Field | Type | Notes |
-|---|---|---|
-| id | number | |
-| code | string | |
-| name | string | |
-| latitude | number \| null | |
-| longitude | number \| null | |
-| active | boolean | |
-
-### Get one
-
-`GET /api/grid-stations/{id}` — same shape. `404` if not found.
-
-### Create
-
-`POST /api/grid-stations`
-
-**Request body**
-
-| Field | Type | Constraints |
-|---|---|---|
-| code | string | required |
-| name | string | required |
-| latitude | number | optional |
-| longitude | number | optional |
-
-**Response**: created station. `message`: `"Grid Station created"`.
-
-### Update
-
-`PUT /api/grid-stations/{id}`
-
-**Request body**: same as Create.
-**Response**: updated station. `message`: `"Grid Station updated"`. `404` if not found.
-
-### Delete
-
-`DELETE /api/grid-stations/{id}`
-
-**Response** `data`: `null`. `message`: `"Grid Station deleted"`. `404` if not found.
-
----
-
-### Sub-entity: Power Transformer
-
-Belongs to a grid station.
-
-### List
-
-`GET /api/power-transformers?gridStationId={id}`
-
-`gridStationId` is optional; omitted returns all transformers.
-
-**Response** `data`: array of
-
-| Field | Type | Notes |
-|---|---|---|
-| id | number | |
-| gridStationId | number | |
-| transformerName | string | |
-| cableSize | string \| null | e.g. cable size descriptor |
-| ctRatio | string \| null | e.g. current-transformer ratio |
-| capacityKva | number \| null | capacity, decimal |
-
-### Create
-
-`POST /api/power-transformers`
-
-**Request body**
-
-| Field | Type | Constraints |
-|---|---|---|
-| gridStationId | number | required, must reference an existing station |
-| transformerName | string | required |
-| cableSize | string | optional |
-| ctRatio | string | optional |
-| capacityKva | number | optional, decimal |
-
-**Response**: created transformer. `message`: `"Power Transformer created"`.
-**404** if `gridStationId` doesn't resolve.
-
-### Delete
-
-`DELETE /api/power-transformers/{id}`
-
-**Response** `data`: `null`. `message`: `"Power Transformer deleted"`. `404` if not found.
-
----
-
-## Module: Survey
-
-Field submissions synced from a mobile survey app against a parent
-work item.
-
-### List by work item
-
-`GET /api/survey-forms?workOrderId={id}`
-
-`workOrderId` is required.
-
-**Response** `data`: array of, ordered by submission order
-
-| Field | Type | Notes |
-|---|---|---|
-| id | number | |
-| workOrderId | number | |
-| sePoint | string | one of the defined point-type codes (start/end point) |
-| gpsNumber | string | unique per submission |
-| equipmentTypeCode | string | |
-| lineLengthMeters | number \| null | decimal |
-| latitude | number \| null | |
-| longitude | number \| null | |
-| remarks | string \| null | |
-| syncedAt | string (ISO 8601 timestamp) | |
-
-### Sync (submit)
-
-`POST /api/survey-forms/sync`
-
-**Request body**
-
-| Field | Type | Constraints |
-|---|---|---|
-| workOrderId | number | required, must reference an existing work item |
-| sePoint | string | required, must be a valid point-type code |
-| equipmentTypeCode | string | required, must reference an existing equipment type |
-| gpsNumber | string | required, must be unique — collision is rejected, not overwritten |
-| lineLengthMeters | number | optional, decimal |
-| submittedByUserId | number | required, must reference an existing user |
-| latitude | number | optional |
-| longitude | number | optional |
-| remarks | string | optional |
-
-**Response**: the synced submission. `message`: `"Survey form synced"`.
-**400** if the submitted equipment type is not a legal continuation of
-the previous submission's end-point equipment for this work item, or is
-not a legal start/end type at all.
-**404** if `workOrderId`, `equipmentTypeCode`, or `submittedByUserId`
-doesn't resolve.
-**409** if `gpsNumber` already exists (sync-time collision — caller
-should regenerate and resubmit rather than retry the same value).
-
----
-
-## Module: Work Item (approval workflow)
-
-A unit of work against a feeder, moving through a fixed multi-tier
-approval chain.
-
-### List
-
-`GET /api/work-orders`
-
-**Response** `data`: array of
-
-| Field | Type | Notes |
-|---|---|---|
-| id | number | |
-| feederId | number | |
-| feederCode | string | |
-| woType | string | one of the defined work-item type codes |
-| statusCode | string | current status |
-| statusLabel | string | human-readable status |
-| createdByUserId | number | |
-| assignedToUserId | number \| null | |
-| locationLat | number \| null | |
-| locationLng | number \| null | |
-| createdAt | string (ISO 8601 timestamp) | |
-
-### Get one
-
-`GET /api/work-orders/{id}` — same shape. `404` if not found.
-
-### Create
-
-`POST /api/work-orders`
-
-**Request body**
-
-| Field | Type | Constraints |
-|---|---|---|
-| feederId | number | required, must reference an existing feeder |
-| woType | string | required, must be a valid work-item type code |
-| createdByUserId | number | required, must reference an existing user |
-| locationLat | number | optional |
-| locationLng | number | optional |
-
-**Response**: created work item, in its initial status. `message`: `"Work Order created"`.
-**403** if the creator's assigned unit does not match the feeder's
-assigned unit.
-**404** if `feederId` or `createdByUserId` doesn't resolve.
-
-### Assign
-
-`POST /api/work-orders/{id}/assign`
-
-Hands a `CREATED` work order to a Surveyor. This is the only way a work
-item's `assignedToUserId` is ever set — `create()` never sets it directly
-(see Known Issues fix #2). Internally runs the `CREATED -> ASSIGN ->
-ASSIGNED` transition through the same state machine as every other
-action, so the status and the assignee can never end up out of sync.
-
-**Request body**
-
-| Field | Type | Constraints |
-|---|---|---|
-| surveyorUserId | number | required, must reference an existing user (the Surveyor being assigned) |
-| actorUserId | number | required, must reference an existing user (the Creator performing the assignment; must hold the Creator role for the transition to be legal) |
-
-**Response**: the work item, now `ASSIGNED` with `assignedToUserId` set. `message`: `"Work Order assigned"`.
-**404** if `surveyorUserId` or `actorUserId` doesn't resolve.
-**409** if the work item isn't currently `CREATED`, or the actor's role can't perform `ASSIGN`.
-
-### Transition
-
-`POST /api/work-orders/{id}/transition`
-
-Every status change — including approve, reject, and any other step in
-the chain — goes through this single endpoint as a named action rather
-than a direct status update.
-
-**Request body**
-
-| Field | Type | Constraints |
-|---|---|---|
-| actionCode | string | required, must be a legal action for the item's current status and the actor's role |
-| actorUserId | number | required, must reference an existing user |
-| comment | string | required only for actions flagged as requiring a comment (e.g. rejection); optional otherwise |
-
-**Response**: the work item in its new status. `message`: `"Work Order transitioned"`.
-**400** if a required comment is missing.
-**404** if `actorUserId` doesn't resolve.
-**409** if there is no legal transition for the given action, current
-status, and actor's role.
-
----
-
-## Cross-module conventions
-
-- All numeric IDs are server-generated; none are client-supplied.
-- All `*Id` request fields referencing another module's records are
-  resolved server-side and return `404` if they don't exist — no
-  module trusts a foreign key without checking it first.
-- All timestamps are ISO 8601 with offset.
-- List endpoints that support an optional parent-scoping query
-  parameter (e.g. `?circleId=`, `?gridStationId=`, `?workOrderId=`)
-  return every record when the parameter is omitted, except where the
-  parameter is explicitly marked required above.
-
----
-
-## Module: Warehouse (reference data)
-
-Configurable lookup lists (SRS §3.5) — transformer capacity buckets,
-pole/structure types, HT/LT conductor types, etc. — organized as a
-category (`item_category`) containing ordered values (`item_type`).
-Backs both the mobile survey form's dropdowns and reports-service's
-fixed enumerated columns (SRS §3.15.2), rather than either hardcoding
-the SRS's lists as Java enums.
-
-### List categories
-
-`GET /api/warehouse/categories`
-
-**Response** `data`: array of
-
-| Field | Type | Notes |
-|---|---|---|
-| id | number | |
-| code | string | e.g. `TRANSFORMER_CAPACITY`, `HT_CONDUCTOR` |
-| name | string | |
-| active | boolean | |
-
-### Get one category
-
-`GET /api/warehouse/categories/{id}` — same shape. `404` if not found.
-
-### Create category
-
-`POST /api/warehouse/categories`
-
-**Request body**: `code` (string, required), `name` (string, required).
-**Response**: created category. `message`: `"Item Category created"`.
-
-### List item types in a category
-
-`GET /api/warehouse/item-types?categoryId={categoryId}`
-
-**Response** `data`: array of
-
-| Field | Type | Notes |
-|---|---|---|
-| id | number | |
-| categoryId | number | |
-| categoryCode | string | |
-| code | string | machine-safe key, e.g. `KVA_10` |
-| displayLabel | string | human label, e.g. `"10 KVA"` |
-| sortOrder | number | controls display/report column ordering |
-| active | boolean | |
-
-Ordered by `sortOrder` ascending.
-
-### Get one item type
-
-`GET /api/warehouse/item-types/{id}` — same shape. `404` if not found.
-
-### Create item type
-
-`POST /api/warehouse/item-types`
-
-**Request body**
-
-| Field | Type | Constraints |
-|---|---|---|
-| categoryId | number | required, must reference an existing category |
-| code | string | required |
-| displayLabel | string | required |
-| sortOrder | number | optional, defaults to 0 |
-
-**Response**: created item type. `message`: `"Item Type created"`. `404` if `categoryId` doesn't resolve.
-
-### Update item type
-
-`PUT /api/warehouse/item-types/{id}`
-
-**Request body**: same as Create.
-**Response**: updated item type. `message`: `"Item Type updated"`. `404` if not found.
-
----
-
-## Module: Reports
-
-Feeder Assets Reports (SRS §3.15). Every endpoint requires at least one
-of `circleId`, `divisionId`, `subDivisionId`, `feederId` — unlike other
-modules' list endpoints, an unscoped call is rejected rather than
-returning a utility-wide result. `dateFrom`/`dateTo` alone do not
-satisfy this requirement.
-
-Each report returns a fixed set of rows/fields — the enumerated lists
-from SRS §2.4 — not a dynamic pivot.
-
-### Common query parameters (all four endpoints)
-
-| Param | Type | Constraints |
-|---|---|---|
-| circleId | number | optional |
-| divisionId | number | optional |
-| subDivisionId | number | optional |
-| feederId | number | optional |
-| dateFrom | string (ISO 8601 timestamp) | optional, filters on survey sync time |
-| dateTo | string (ISO 8601 timestamp) | optional, filters on survey sync time |
-
-At least one of `circleId`/`divisionId`/`subDivisionId`/`feederId` is
-required. **400** (`BAD_REQUEST`) if none are supplied.
-
-### Pole structure summary
-
-`GET /api/reports/pole-structure-summary`
-
-**Response** `data`: array of, one row per pole structure type with at
-least one surveyed pole in scope
-
-| Field | Type | Notes |
-|---|---|---|
-| code | string | structure type code (from the `PRIMARY_STRUCTURE`/`SECONDARY_STRUCTURE` lookup category) |
-| label | string | structure type display label |
-| count | number | count of surveyed poles of this type in scope |
-
-### Conductor summary
-
-`GET /api/reports/conductor-summary`
-
-**Response** `data`: array of, one row per conductor type with at least
-one surveyed segment in scope
-
-| Field | Type | Notes |
-|---|---|---|
-| code | string | conductor type code (from the `HT_CONDUCTOR`/`LT_CONDUCTOR` lookup category) |
-| label | string | conductor type display label |
-| count | number | count of surveyed segments of this type in scope |
-| totalLengthMeters | number | sum of surveyed segment length, decimal |
-
-### Transformer capacity summary
-
-`GET /api/reports/transformer-capacity-summary`
-
-**Response** `data`: array of, one row per capacity bucket with at
-least one surveyed transformer in scope
-
-| Field | Type | Notes |
-|---|---|---|
-| code | string | capacity bucket code (from the `TRANSFORMER_CAPACITY` lookup category) |
-| label | string | capacity bucket display label, e.g. "100 KVA" |
-| count | number | count of surveyed transformers of this capacity in scope |
-
-### Meter summary
-
-`GET /api/reports/meter-summary`
-
-**Response** `data`: object — flat count, no lookup dimension (meters
-aren't typed against a lookup category)
-
-| Field | Type | Notes |
-|---|---|---|
-| count | number | count of surveyed meters in scope |
+## Change Log (this pass)
+
+- Replaced the previous draft contract (pre-dated the `auth` module and
+  several report endpoints) with the actual routes, request/response
+  shapes, and exception mappings read directly from
+  `GlobalExceptionHandler` and each controller.
+- Added the full `auth` module (5 endpoints).
+- Added the `warehouse` module (categories + item types).
+- Added all 9 `reports` endpoints, including the 4 feeder-row reports
+  from Pass 5 (device/structure/conductor/meter) with their zero-fill
+  and dedicated/general-duty behavior.
+- Documented the `feeder` assign/unassign and `work-order`
+  assign/transition split (Pass 3 change — creation no longer sets an
+  assignee directly).
+- Added a single global error-code / exception table instead of
+  repeating it per module.
